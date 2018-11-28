@@ -6,12 +6,562 @@
 #
 #    http://shiny.rstudio.com/
 #
+###inicio de definicao de funcao
+
+
+#funcao para completar variaveis categoricas
+
+recuperar_categorica=function(c,d,delta){ # c sera a coluna com maior correlacao d a de valores faltando, delta o fator de aceitacao de valores iguais para valores reais
+  #vec2=c()
+  #b=d
+  #na pratica todo b é d
+  
+  vec1=c()
+  cont=1
+  g=which(is.na(d)) #d e a coluna com valores faltantes
+  e=c[g] # c será a coluna que tem maior correlação com a coluna que falta valores
+  for(i in e){
+    if(class(c)!="numeric" & class(c)!="integer")
+      tabela=table(d[which(c==i)] )
+    else
+      tabela=table(d[which(c-delta<i & c+delta > i)] )
+    if(length(tabela)>0){
+    probabilidades=as.numeric(tabela)
+    probabilidades=probabilidades/sum(probabilidades)
+    probabilidades=cumsum(probabilidades)
+    indice=min(which(runif(1)<probabilidades))
+    if(class(c)!="numeric" & class(c)!="integer")
+      d[ g[cont] ]=names(tabela)[indice]
+    else
+      d[g[cont]]=as.numeric(tabela)[indice]
+    #print(b[g[cont]])
+    }
+    cont=cont+1
+  }
+  #vec2[j]=sum(vec1==b[g])/length(b[g])
+  return(d)
+}
+
+
+#segunda opcao featurizer
+
+
+
+
+
+predicao_importancia_v2=function(w,meta){ #essa ta incompleta
+  a=matriz_correlacao_completa(w)
+  nome1=names(w)[meta]
+  indice=which(nome1==names(a[,1]))
+  valores=as.numeric(a[,indice])
+  print(a[order(abs(a[,indice])),indice])
+  
+}
+
+
+
+
+
+matriz_correlacao_completa=function(w){
+  numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
+  #print(dim(w))
+  fac=w[,-numericos]
+  #       print(dim(fac))
+  numer=w[,numericos]
+  #       print(dim(numer))
+  if(ncol(fac)>0){
+    for(i in 1:ncol(fac)){
+      fac[,i]=convert_fac_num(fac[,i])
+    }
+    fac=data.frame(fac,numer)
+    cor(fac,use = "pairwise.complete.obs")
+    
+    
+  }
+}
+
+convert_fac_num=function(y){
+  c=c()
+  cont=1
+  #print(unique(y))
+  for(i in unique(y))
+  {
+    c[which(y==i)]=cont
+    cont=cont+1
+  }
+  return(c)
+}
+
+
+#funcoes para calculo do melhor ajuste
+
+#emsemble de modelos
+modelos=function(eixox,eixoy,limitepol){ # pede o eixo x, y pro fit e caso espandiamos em uma serie de taylor qual o limite da ordem
+  x=list()
+  x2=list()
+  #eixoy=eixoy[which(eixox!=0)]
+  #eixox=eixox[which(eixox!=0)]
+  #eixox=eixox[which(eixoy!=0)]
+  #eixoy=eixoy[which(eixoy!=0)]
+  x[[1]]=lm(eixoy~eixox)
+  x2[[1]]="y=ax+b"
+  index=1
+  if(sum(exp(eixox)==Inf)==0){
+    index=index+1
+    x[[index]]=lm(eixoy~exp(eixox))
+    x2[[index]]="y=a*exp(bx)"
+  }
+  if(sum(eixox==0)==0){
+    index=index+1
+    x[[index]]=lm(eixoy~log(eixox))
+    x2[[index]]="y=a*log(bx)"
+  }
+  #ao inserir novos modelos coloque os aqui e apos modifique o valor de tamanho
+  tamanho=length(x) 
+  for(i in 1:limitepol){
+    x[[i+tamanho]]=lm(eixoy~poly(eixox,i+1,raw = TRUE))
+    str=paste("y=poly(x^",i+1,")",sep="")
+    x2[[i+tamanho]]=str
+  }
+  if(sum(eixox==0)==0){
+    w=1/eixox
+    k=length(x)
+    x[[k+1]]=lm(eixoy~w)
+    x2[[k+1]]="y=a/x+b"
+    x[[k+2]]=lm(eixoy~exp(w))
+    x2[[k+2]]="y=a/exp(x)+b"
+    x[[k+3]]=lm(eixoy~log(w))
+    x2[[k+3]]="y=a/log(x)+b"
+    tamanho=length(x)
+    for(i in 1:limitepol){
+      x[[i+tamanho]]=lm(eixoy~poly(w,i+1,raw=TRUE ) )
+      str=paste("y=poly(1/x^",i+1,")",sep="")
+      x2[[i+tamanho]]=str
+    }
+    tamanho=length(x)
+    for(i in 1:limitepol){
+      
+      x[[i+tamanho]]=lm(eixoy~exp(poly(w,i+1,raw=TRUE)))
+      str=paste("y=exp(poly(1/x^",i+1,"))",sep="")
+      x2[[i+tamanho]]=str
+    }
+    tamanho=length(x)
+    if(sum(eixox==0)==0){
+      for(i in 1:limitepol){
+        
+        x[[i+tamanho]]=lm(eixoy~log(poly(w,i+1,raw=TRUE)))
+        str=paste("y=log(poly(1/x^",i+1,"))",sep="")
+        x2[[i+tamanho]]=str
+      }
+    }
+  }
+  tamanho=length(x)
+  for(i in 1:limitepol){
+    if(sum(exp(poly(eixox,i+1,raw=TRUE))==Inf)==0){
+      
+      x[[i+tamanho]]=lm(eixoy~exp(poly(eixox,i+1,raw = TRUE)))
+      str=paste("y=exp(poly(x^",i+1,")",sep="")
+      x2[[i+tamanho]]=str
+    }
+  }
+  
+  tamanho=length(x)
+  if(sum(eixox==0)==0){
+    for(i in 1:limitepol){
+      
+      x[[i+tamanho]]=lm(eixoy~log(poly(eixox,i+1,raw=TRUE)))
+      str=paste("y=log(poly(x^",i+1,"))",sep="")
+      x2[[i+tamanho]]=str
+    }
+  }
+  tamanho=length(x)
+  #combinacoes exp log
+    for(i in 1:limitepol){
+      for(j in 1:limitepol)
+      tryCatch({
+        x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~exp(poly(eixox,i,raw=TRUE)):log(poly(eixox,j,raw=TRUE))  )
+        str=paste("y=exp(poly(x^",i,")","*","log(poly(x^",j,")",sep="")
+        x2[[(i-1)*limitepol+j+tamanho]]=str
+    },error=function(e){})
+    }
+  
+# combinacoes exp x  
+  tamanho=length(x)
+  
+  for(i in 1:limitepol){
+    for(j in 1:limitepol)
+      tryCatch({
+      x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~exp(poly(eixox,i,raw=TRUE)):poly(eixox,j,raw=TRUE)  )
+      str=paste("y=exp(poly(x^",i,")","*","poly(x^",j,")",sep="")
+      x2[[(i-1)*limitepol+j+tamanho]]=str
+      },error=function(e){})
+  }
+  
+  # combinacoes log x  
+  tamanho=length(x)
+  
+  for(i in 1:limitepol){
+    for(j in 1:limitepol)
+      tryCatch({
+      x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~log(poly(eixox,i,raw=TRUE)):poly(eixox,j,raw=TRUE)  )
+      str=paste("y=log(poly(x^",i,")","*","poly(x^",j,")",sep="")
+      x2[[(i-1)*limitepol+j+tamanho]]=str
+  },error=function(e){})
+  }
+  
+  # combinacoes exp 1/x  
+  tamanho=length(x)
+  
+  for(i in 1:limitepol){
+    for(j in 1:limitepol)
+      tryCatch({
+      x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~exp(poly(eixox,i,raw=TRUE)):poly(w,j,raw=TRUE)  )
+      str=paste("y=exp(poly(x^",i,")","*","poly(1/x^",j,")",sep="")
+      x2[[(i-1)*limitepol+j+tamanho]]=str
+  },error=function(e){})
+  }
+  
+  # combinacoes log 1/x  
+  tamanho=length(x)
+  
+  for(i in 1:limitepol){
+    for(j in 1:limitepol)
+      tryCatch({
+      x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~log(poly(eixox,i,raw=TRUE)):poly(w,j,raw=TRUE)  )
+      str=paste("y=log(poly(x^",i,")","*","poly(1/x^",j,")",sep="")
+      x2[[(i-1)*limitepol+j+tamanho]]=str
+      },error=function(e){})
+  }
+  
+  # combinacoes exp1/x x  
+  tamanho=length(x)
+  
+  for(i in 1:limitepol){
+    for(j in 1:limitepol)
+      tryCatch({
+      x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~exp(poly(w,i,raw=TRUE)):poly(eixox,j,raw=TRUE)  )
+      str=paste("y=exp(poly(1/x^",i,")","*","poly(x^",j,")",sep="")
+      x2[[(i-1)*limitepol+j+tamanho]]=str
+      },error=function(e){})
+  }
+  
+  # combinacoes log1/x x  
+  tamanho=length(x)
+  
+  for(i in 1:limitepol){
+    for(j in 1:limitepol)
+      tryCatch({
+      x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~log(poly(w,i,raw=TRUE)):poly(eixox,j,raw=TRUE)  )
+      str=paste("y=log(poly(1/x^",i,")","*","poly(x^",j,")",sep="")
+      x2[[(i-1)*limitepol+j+tamanho]]=str
+      },error=function(e){})
+  }
+  
+  # combinacoes exp1/x 1/x  
+  tamanho=length(x)
+  
+  for(i in 1:limitepol){
+    for(j in 1:limitepol)
+      tryCatch({
+      x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~exp(poly(w,i,raw=TRUE)):poly(w,j,raw=TRUE)  )
+      str=paste("y=exp(poly(1/x^",i,")","*","poly(1/x^",j,")",sep="")
+      x2[[(i-1)*limitepol+j+tamanho]]=str
+      },error=function(e){})
+  }
+  
+  # combinacoes log1/x 1/x  
+  tamanho=length(x)
+  
+  for(i in 1:limitepol){
+    for(j in 1:limitepol)
+      tryCatch({
+      x[[(i-1)*limitepol+j+tamanho]]=lm(eixoy~log(poly(w,i,raw=TRUE)):poly(w,j,raw=TRUE)  )
+      str=paste("y=log(poly(1/x^",i,")","*","poly(1/x^",j,")",sep="")
+      x2[[(i-1)*limitepol+j+tamanho]]=str
+  },error=function(e){})
+  }
+  cont=1
+  x3=list()
+  for(i in 1:length(x)){
+    if(!is.null(x[[i]])){
+    x3[[cont]]=x[[i]]
+    cont=cont+1
+    }
+  }
+  x=x3
+  w=list()
+  w[[1]]=x # modelos
+  w[[2]]=x2 #nomes
+  return(w)
+}
+#corta fit que deu problema
+elimina_Fit_falho=function(modelos){
+  vec=c()
+  cont=1
+  for(i in 1:length(modelos)){
+    ll=sum(is.na(modelos[[i]]$coefficients))
+    if(ll==0){
+      vec[cont]=i
+      cont=cont+1
+    }
+  }
+  return(vec)
+  
+}
+#corta fit com erros no predict
+elimina_erros=function(modelos,x){
+  vec=c()
+  cont=1
+  v=data.frame(x)
+  for(i in 1:length(modelos)){
+    tryCatch({
+      ll=predict(modelos[[i]], data=x)
+      if( sum(is.na(ll))==0 & sum(ll==Inf)==0  ){
+        vec[cont]=i
+      cont=cont+1}
+    },error=function(e){})
+  }
+  return(vec)
+  
+}
+#seleciona o que maximiza f value
+seleciona_melhor=function(x,y,limitepol,numero)
+{
+  conjunto=modelos(x,y,limitepol)
+  #print("mensagem")
+  #print(conjunto)
+  #print(conjunto[[1]])
+  candidatos=conjunto[[1]]
+  nomes_modelos=conjunto[[2]]
+  print(candidatos)
+  print("fit falho")
+  indices=elimina_Fit_falho(candidatos)
+  candidatos=candidatos[indices]
+  nomes_modelos=nomes_modelos[indices]
+  print(candidatos)
+  indices=elimina_erros(candidatos,x)
+  candidatos=candidatos[indices]
+  nomes_modelos=nomes_modelos[indices]
+  print("erros")
+  print(candidatos)
+  vec=c()
+  for(i in 1:length(candidatos)){
+    vec[i]=anova(candidatos[[i]])$F[1]
+  }
+  #vec=vec[sort(vec,decreasing=TRUE)]
+  #melhor=which(max(vec)==vec)[1]
+  #	print(candidatos)
+  print(c(length(vec),length(candidatos))  )
+  #	print(order(vec,decreasing=TRUE))
+  candidatos_ordenados=candidatos[order(vec,decreasing=TRUE)]
+  nomes_ordenados=nomes_modelos[order(vec,decreasing=TRUE)]
+  #print(candidatos_ordenados)
+  #print(candidatos[1:numero])
+  print("terminou F Value")
+  
+  u=list()
+  if(numero<length(candidatos_ordenados))
+    u=list(candidatos_ordenados[1:numero],nomes_ordenados[1:numero])
+  else
+    u=list(candidatos_ordenados,nomes_ordenados)
+  
+  return(u)
+}
+#seleciona o que maximiza R squared
+seleciona_melhor_rs=function(x,y,limitepol,numero)
+{
+  conjunto=modelos(x,y,limitepol)
+  #print("mensagem")
+  #print(conjunto)
+  #print(conjunto[[1]])
+  candidatos=conjunto[[1]]
+  nomes_modelos=conjunto[[2]]
+  print(candidatos)
+  print("fit falho")
+  indices=elimina_Fit_falho(candidatos)
+  candidatos=candidatos[indices]
+  nomes_modelos=nomes_modelos[indices]
+  print(candidatos)
+  indices=elimina_erros(candidatos,x)
+  candidatos=candidatos[indices]
+  nomes_modelos=nomes_modelos[indices]
+  vec=c()
+  for(i in 1:length(candidatos)){
+    vec[i]=summary(candidatos[[i]])$r.squared
+  }
+  #vec=vec[sort(vec,decreasing=TRUE)]
+  #melhor=which(max(vec)==vec)[1]
+  #print(candidatos)
+  #print(vec)
+  #print(order(vec,decreasing=TRUE))
+  #print(c(length(vec),length(candidatos))  )
+  #	print(order(vec,decreasing=TRUE))
+  candidatos_ordenados=candidatos[order(vec,decreasing=TRUE)]
+  nomes_ordenados=nomes_modelos[order(vec,decreasing=TRUE)]
+  #print(candidatos_ordenados)
+  #  print(candidatos_ordenados[1:numero])
+  print("terminou R squared")
+  u=list()
+  if(numero<length(candidatos_ordenados))
+    u=list(candidatos_ordenados[1:numero],nomes_ordenados[1:numero])
+  else
+    u=list(candidatos_ordenados,nomes_ordenados)
+  return(u)
+#    return(candidatos_ordenados[1:numero])
+#  else
+#    return(candidatos_ordenados)
+}
+
+
+fit_melhor_caso=function(x,y,cores,limitepol,numero,metrica,nomeX,nomeY){
+ # melhor_modelo1=seleciona_melhor(x,y,limitepol,numero)
+  if(metrica=="R squared")
+    melhor_modelo=seleciona_melhor_rs(x,y,limitepol,numero)
+  else if(metrica=="F Value")
+    melhor_modelo=seleciona_melhor(x,y,limitepol,numero)
+  print(melhor_modelo)
+  v=data.frame(x,y)
+  nomes_melhor=melhor_modelo[[2]]
+  melhor_modelo=melhor_modelo[[1]]
+  #print(melhor_modelo)
+  #plot(x,y)
+  #print(melhor_modelo)
+  sem0=v#v[which(v[,1]!=0),]
+  ll=predict(melhor_modelo[[1]], data=x)
+  u=data.frame(sem0[,1],ll,nomes_melhor[[1]])
+  names(u)=c("x","y","modelo")
+  if(length(melhor_modelo)>1){
+    for(i in 2:length(melhor_modelo)){
+      #lines(v[,1], predict(melhor_modelo2[[i]], data.frame(x=v[,1])), col="red")
+      #  aux=data.frame(v[,1],predict(melhor_modelo2[[i]], data.frame(x=v[,1])),toString(melhor_modelo2$call$formula) )
+      ll=predict(melhor_modelo[[i]], data=x)
+      #print(ll)v
+      aux=data.frame(sem0[,1],ll,nomes_melhor[[i]] )
+      names(aux)=names(u)
+      #  print(aux)
+      u=rbind(u,aux)
+     print(nrow(u))
+      print(nrow(v))
+    }
+  }
+  print(dim(u))
+  #print(u)
+  
+  #write.table(file="meta.dat",u,row.names = FALSE)
+  #print(u[1:201,])
+  auxiliar=nrow(u)/nrow(v)
+  print(auxiliar)
+  auxiliar=auxiliar-1
+  v0=v
+  if(auxiliar>0)
+  for(i in 1:auxiliar){
+    v=rbind(v,v0)
+  }
+  print(nrow(v))
+  print(nrow(u))
+  print(c(nomeX,nomeY))
+  ggplot(data=u) +geom_point(aes(x=v[,1],y=v[,2])) +geom_line(aes(x=u[,1],y=u[,2],col=u[,3] )  ) + labs(x=nomeX,y=nomeY,col="Modelos")
+}
+#fim destas
+
+min.f1f2 <- function(x, mu1, mu2, sd1, sd2) {
+  f1 <- dnorm(x, mean=mu1, sd=sd1)
+  f2 <- dnorm(x, mean=mu2, sd=sd2)
+  pmin(f1, f2)
+}
+# function to calculate the coefficient of intersection(how much of the data is intersected)
+#to know it use the code integrate(min.f1f2, -Inf, Inf, mu1=mu1, mu2=mu2, sd1=sd1, sd2=sd2)
+
+
+featurizer=function(df,meta,contra,separacao){
+  p1=1.0
+  p2=1.0
+  b=df[1:(nrow(df)-nrow(df)%%separacao),]
+  b=b[order(b[,contra]),]
+  analise=matrix(b[,meta],ncol=separacao)
+  if(class(df[1,meta])=='numeric'){
+    medias=apply(analise,2,mean,na.rm=TRUE)
+    desvio=apply(analise,2,sd,na.rm=TRUE)
+    desvio[which(is.na(desvio))]=mean(desvio,na.rm = TRUE)
+    medias[which(is.na(medias))]=mean(medias,na.rm = TRUE)
+    #	print(c(medias,desvio))
+    contador=0
+    ntermos=0
+    for(i in 1:(length(medias)-1))
+    {
+      for(j in (i+1):length(medias))
+      {
+        # print(c(medias[i],"mediai"))
+        # print(c(medias[i],"mediaj"))
+        # print(c(desvio[i],"desvio"))
+        # print(c(desvio[j],"desvioj"))
+        hu=integrate(min.f1f2, -Inf, Inf, mu1=medias[i], mu2=medias[j], sd1=desvio[i], sd2=desvio[j],stop.on.error = FALSE )
+        if(!is.na(hu$value)){
+          contador=contador+ (1-hu$value )
+          ntermos=ntermos+1 }
+      }
+      
+    }
+    return (contador/ntermos)
+    #return (p1*sd(medias,na.rm = TRUE) -p2*mean(desvio,na.rm = TRUE)) # maximizar a distancia entre as diferentes medias mas minimizar o desvio padrão da relacao
+  }
+  else{
+    tabular=apply(analise,2,table)
+    desvio=c()
+    medias=c()
+    for(i in 1:length(tabular)){
+      desvio[i]=sd(as.numeric(unlist(tabular[i]) ),na.rm=TRUE )
+      medias[i]=mean(as.numeric(unlist(tabular[i]) ),na.rm=TRUE )
+    }
+    desvio[which(is.na(desvio))]=mean(desvio,na.rm = TRUE)
+    medias[which(is.na(medias))]=mean(medias,na.rm = TRUE)
+    contador=0
+    ntermos=0
+    for(i in 1:(length(medias)-1))
+    {
+      for(j in (i+1):length(medias))
+      {
+        
+        hu=integrate(min.f1f2, -Inf, Inf, mu1=medias[i], mu2=medias[j], sd1=desvio[i], sd2=desvio[j],stop.on.error = FALSE )
+        if(!is.na(hu$value)){
+          contador=contador+ (1-hu$value )
+          ntermos=ntermos+1 }
+      }
+      
+    }
+    return (contador/ntermos)
+    #return(sd(desvio))
+  }}
+
+
+
+#b=a[,which( sapply(a,class)=="numeric"|sapply(a,class)=="integer")]
+grupo=function(a,meta,sep){
+  b=a
+  frame=data.frame(1,2,3)
+  opcao=meta
+  for(i in 1:ncol(b)){
+    frame[i,]=c(names(b)[i],featurizer(b,opcao,i,sep),class(b[,i]))
+    
+    
+  }
+  
+  aux=as.numeric(frame[opcao,2])
+  frame[,2]=as.numeric(frame[,2])/aux
+  frame=frame[order(frame[,2],frame[,3]),]
+  return(frame)
+}
+###fim da definicao de funcoes
+
 options(warn=-1)
 library(shiny)
 require(ggplot2)
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-   
+  tags$style(type="text/css",
+             ".shiny-output-error { visibility: hidden; }",
+             ".shiny-output-error:before { visibility: hidden; }"
+  ),
    # Application title
    titlePanel("Exploratory Data Analysis"),
    
@@ -25,6 +575,18 @@ ui <- fluidPage(
         checkboxInput("showsummary", "Show Summary", FALSE),
         checkboxInput("showcorrelation", "Show correlation matrix", FALSE),
         checkboxInput("showna","Show the relative amount of missing data",FALSE),
+        checkboxInput("showfeature","Show the featurizer(uses x as variable to predict)",FALSE),
+        checkboxInput("showfunctional","Show the functional dependency(uses x as variable to predict)",FALSE),
+        checkboxInput("generate","Generate best Graph",FALSE),
+        conditionalPanel(
+          condition = "input.generate == TRUE",
+       sliderInput("poly",label = "Termos maximos da expansão",min = 1,max=20,value=2)),
+        
+            uiOutput("NTermos"),
+       conditionalPanel(
+         condition = "input.generate == TRUE",
+         selectInput("metrica",label = "Metricas",choices = c("R squared","F Value"))),
+        uiOutput("separacoes"),
         conditionalPanel(
           condition = "is.null(input.file1) == TRUE",
           checkboxInput("histogram","Show histogram of x")),
@@ -48,6 +610,8 @@ ui <- fluidPage(
            condition = "input.showcorrelation == TRUE",
          verbatimTextOutput("corre")),
          verbatimTextOutput("nas"),
+         verbatimTextOutput("grupos"),
+         verbatimTextOutput("grupos_alt"),
          h3("Aplicativo desenvolvido por Rafael Silva Pereira!\n\n"),
          h4("Em caso de duvidas ou problemas favor entrar em contato\n\n"),
          h4("Para gerar o grafico a primeira vez clique para completar o dataset, não será nescessario para futuras explorações\n\n"),
@@ -60,7 +624,19 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   options(shiny.maxRequestSize=100*1024^2)
-  
+  output$NTermos=renderUI({
+    sliderInput("opcoes",label = "Numero de modelos a ser plotado",min = 1,max=3*input$poly,value=1)
+    
+  })
+  output$separacoes=renderUI({
+    if(!is.null(input$file1)){
+   if(input$showfeature == TRUE){
+     w=read.csv(input$file1$datapath,header=TRUE)
+     
+     sliderInput(inputId = "separacoes",min =2,max =0.5*nrow(w),value = 2,label="numero de subconjuntos do dataset"  ) 
+   }
+  }}
+  )
   output$tamanhos = renderUI({
     if(!is.null(input$file1)){
       w=read.csv(input$file1$datapath,header=TRUE)
@@ -97,6 +673,7 @@ server <- function(input, output) {
       
     }
   })
+  
   
   output$Eixoy = renderUI({
     if(!is.null(input$file1)){
@@ -139,14 +716,34 @@ server <- function(input, output) {
      summary(w)
      }}
    })
+   
+   output$grupos <- renderPrint({
+     if(!is.null(input$file1)){
+       if(input$showfeature==TRUE){
+         
+         w=read.csv(input$file1$datapath,header=TRUE)
+         eixoX=which(names(w)==input$X)
+         print(grupo(w,eixoX,input$separacoes))
+       }}
+   })
+   
+   output$grupos_alt <- renderPrint({
+     if(!is.null(input$file1)){
+       if(input$showfunctional==TRUE){
+         
+         w=read.csv(input$file1$datapath,header=TRUE)
+         eixoX=which(names(w)==input$X)
+         print(predicao_importancia_v2(w,eixoX))
+       }}
+   })
    output$corre <- renderPrint({
      if(!is.null(input$file1)){
        if(input$showcorrelation==TRUE){
          
        w=read.csv(input$file1$datapath,header=TRUE)
        e=w[,as.numeric(which(sapply(w,class)=="integer" | sapply(w,class)=="numeric") )]
-       
-       cor(e, use = "pairwise.complete.obs")     }
+       matriz_correlacao_completa(w)}
+      # cor(e, use = "pairwise.complete.obs")     }
    }})
    
    
@@ -187,6 +784,9 @@ server <- function(input, output) {
          #entre localizacao-1 e localizacao esta nosso alvo
          c[b[j]]=runif(1,min=distribuicao_original$breaks[localizacao-1],max=distribuicao_original$breaks[localizacao])
        } # fim da atualizacao de uma coluna
+      #   mn=!is.na(w[,i])
+      #if(sum(w[mn,i]==round(w[mn,i]))==length(w[mn,i])){
+      #  c=round(c)}
       w[,i]=c 
        }
      }
@@ -198,9 +798,17 @@ server <- function(input, output) {
     {
      
        
-         
+         epislon=0.05
          w=read.csv(input$file1$datapath,header=TRUE)
+       #  lixo_w=w
+       #for(i in 1:ncol(w)){
+      #     if(length(unique(w[,i]) )/length(w[,i]) < epislon & (class(w[,i])=="numeric"|class(w[,i])=="integer") & (sum(!is.na(w[,i]) )>0 )   ) # conversao para fatores caso existam elementos mas seja pouca variedade
+      #       lixo_w[,i]=as.factor(w[,i])
+           
+      # }
+       #  w=lixo_w
          e=w[,as.numeric(which(sapply(w,class)=="integer" | sapply(w,class)=="numeric") )]
+         
          nomes=names(w)
          cont=0
          dados=completar_distribuicao(e)
@@ -208,18 +816,42 @@ server <- function(input, output) {
            dados=completar_distribuicao(dados)
            cont=cont+1
          }
-           
-       
-       #atualizacao do dataframe original
-    #   a=which(names(w)==names(dados))
+         #atualizacao do dataframe original
          a=c()
-        for(i in 1:length(names(e)) ){
-            a[i]=which(names(e[i])==names(w))
-            w[,a[i]]=dados[,i]
-        } 
+         for(i in 1:length(names(e)) ){
+           a[i]=which(names(e[i])==names(w))
+           w[,a[i]]=dados[,i]
+         }
+         print(dim(w))
+         #factors
+         f=as.numeric(which(sapply(w,class)!="integer" & sapply(w,class)!="numeric") )
+         print(f)
+         print(names(w)[f])
+         for(i in f){
+           print(c(i,names(w)[i],class(i) ) )
+           
+           #encontrar qual coluna é dependencia funcional da minha meta se esta tem elemtnso nulos
+           if(sum(is.na(w[,i]))>0 &sum(is.na(w[,i]))<length(w[,i])  ){
+            # print(c(i,names(w)[i],class(i) ) )
+             l=predicao_importancia_v2(w,i)
+            # print(l)
+            # print(c(i,names(w)[i],class(i) ) )
+             li=names(l)[which(max(as.numeric(l),na.rm = TRUE)==as.numeric(l))-1] # nome do  mais importante
+             index=which(names(w)==li)
+            # print(c(index,names(w)[index]))
+             w[,i]=recuperar_categorica(w[,index],w[,i],0.1)
+           }
+           
+         }
+       
+      
+    #   a=which(names(w)==names(dados))
+        
+      
          names(w)=nomes
+         print(dim(w)) 
        #w[,a]=dados[,a]
-       write.csv(file="dataset_prenchido.csv",w,col.names = FALSE,row.names = FALSE)
+       write.csv(file="dataset_prenchido.csv",w,col.names = TRUE,row.names = FALSE)
    })
    
    
@@ -229,7 +861,7 @@ server <- function(input, output) {
      },
      content = function(file) {
        a=read.csv("dataset_prenchido.csv")
-       write.table(a, file, row.names = FALSE,col.names = FALSE)
+       write.csv(a, file, row.names = FALSE,col.names = TRUE)
      }
    )
    
@@ -253,10 +885,14 @@ server <- function(input, output) {
        eixoY=which(names(w)==input$Y)
        colorido=which(names(aux)==input$color)
        tamanho=which(names(aux)==input$size)
-       if(input$histogram==FALSE)
+       if(input$histogram==FALSE){
+         if(input$generate==FALSE)
          ggplot(data=aux) +geom_point(aes(x=aux[,eixoX],y=aux[,eixoY],color=aux[,colorido],size=aux[,tamanho]) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
-       else
+         else
+           fit_melhor_caso(aux[,eixoX],aux[,eixoY],cores =aux[,colorido] ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
+       else if(input$histogram==TRUE)
          ggplot(data=aux) +geom_histogram(aes(x=aux[,eixoX],fill=aux[,colorido]),stat = 'count' )+labs(x=input$X,fill=input$color )
+       
        
        
      }
