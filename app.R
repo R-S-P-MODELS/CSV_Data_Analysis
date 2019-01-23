@@ -5,12 +5,22 @@
 # Find out more about building applications with Shiny here:
 #
 #    http://shiny.rstudio.com/
+
+### bootstrap para mensagems de loading
+
+
+packages <- c("ggplot2","shiny","plotly")
+if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+  install.packages(setdiff(packages, rownames(installed.packages())))  
+}
+
+
 #
 ###inicio de definicao de funcao
 
 
 #funcao para completar variaveis categoricas
-
+source("Encontrar_candidatos_dataset_v1.R")
 recuperar_categorica=function(c,d,delta){ # c sera a coluna com maior correlacao d a de valores faltando, delta o fator de aceitacao de valores iguais para valores reais
   #vec2=c()
   #b=d
@@ -555,7 +565,8 @@ grupo=function(a,meta,sep){
 
 options(warn=-1)
 library(shiny)
-require(ggplot2)
+library(plotly)
+#require(ggplot2)
 # Define UI for application that draws a histogram
 ui <- fluidPage(
   tags$style(type="text/css",
@@ -577,18 +588,29 @@ ui <- fluidPage(
         checkboxInput("showna","Show the relative amount of missing data",FALSE),
         checkboxInput("showfeature","Show the featurizer(uses x as variable to predict)",FALSE),
         checkboxInput("showfunctional","Show the functional dependency(uses x as variable to predict)",FALSE),
+	checkboxInput("showbestvector","Show The minimum set of aproximate functional dependency(uses x as variable to predict)",FALSE),
+	 conditionalPanel(
+         condition = "input.showbestvector == true",
+         sliderInput("veclength", "Maximum number of collumns", min=1, max=50, value=1),
+	sliderInput("percent","Percentage of unique values needed to consider a collumn a primary key and reject it on the set",min=1,max=100,value=100),
+	 checkboxInput("numtrigger","Set TRUE to reject elements that show only once",TRUE),
+	 checkboxInput("runbest","Find best set, check to Run",FALSE)
+      ),
         checkboxInput("generate","Generate best Graph",FALSE),
         conditionalPanel(
-          condition = "input.generate == TRUE",
+          condition = "input.generate == true",
        sliderInput("poly",label = "Termos maximos da expansão",min = 1,max=20,value=2)),
         
-            uiOutput("NTermos"),
+
        conditionalPanel(
-         condition = "input.generate == TRUE",
-         selectInput("metrica",label = "Metricas",choices = c("R squared","F Value"))),
-        uiOutput("separacoes"),
+         condition = "input.generate == true",
+	  uiOutput("NTermos"),
+         selectInput("metrica",label = "Metricas",choices = c("R squared","F Value"))
+		
+),
+        
         conditionalPanel(
-          condition = "is.null(input.file1) == TRUE",
+          condition = "is.null(input.file1) == true",
           checkboxInput("histogram","Show histogram of x")),
         uiOutput("Eixox"),
         uiOutput("Eixoy"),
@@ -602,16 +624,17 @@ ui <- fluidPage(
       
       # Show a plot of the generated distribution
       mainPanel(
-         plotOutput("distPlot"),
+         plotlyOutput("distPlot"),
          conditionalPanel(
-           condition = "input.showsummary == TRUE",
+           condition = "input.showsummary == true",
          verbatimTextOutput("sum")),
          conditionalPanel(
-           condition = "input.showcorrelation == TRUE",
+           condition = "input.showcorrelation == true",
          verbatimTextOutput("corre")),
          verbatimTextOutput("nas"),
          verbatimTextOutput("grupos"),
          verbatimTextOutput("grupos_alt"),
+	 verbatimTextOutput("bestvec"),
          h3("Aplicativo desenvolvido por Rafael Silva Pereira!\n\n"),
          h4("Em caso de duvidas ou problemas favor entrar em contato\n\n"),
          h4("Para gerar o grafico a primeira vez clique para completar o dataset, não será nescessario para futuras explorações\n\n"),
@@ -628,6 +651,38 @@ server <- function(input, output) {
     sliderInput("opcoes",label = "Numero de modelos a ser plotado",min = 1,max=3*input$poly,value=1)
     
   })
+
+output$bestvec <- renderPrint({
+     if(!is.null(input$file1)){
+       if(input$showbestvector==TRUE){
+	if(input$runbest==TRUE){
+	#cat("tentarei ler\n")
+	percentage=input$percent/100.0
+	showModal(modalDialog("The code is currently running please wait", footer=NULL))
+       	w=read.csv(input$file1$datapath,header=TRUE)
+#	print("lido")
+	Goal=which(names(w)==input$X)
+	if(length(unique(w[,Goal]))==nrow(w)){
+		cat("the variable",names(w)[Goal],"is a primary key of the dataset\n")
+		#return(0)
+		removeModal()
+	}
+	else{
+	w=w[,as.numeric(which(sapply(sapply(w,unique),length) <percentage*nrow(w)))] # eliminating primary keys
+	Goal=which(names(w)==input$X)
+#	print("pre best")
+	z=best_vector(w,Goal,as.numeric(input$veclength),nrow(w),as.numeric(input$numtrigger))
+	if(z==0)
+		z=best_vector(w,Goal,as.numeric(input$veclength),nrow(w),0)
+#	print("foi best")
+  	x=names(w)[z]
+#	print("vai no mean")
+	y=MeanAccuracy(w,z,Goal)
+       cat("The best set is",x,"it predicts",names(w)[Goal],"with",y*100,"% Accuracy\n")}
+       removeModal()}
+       }}}
+   )
+
   output$separacoes=renderUI({
     if(!is.null(input$file1)){
    if(input$showfeature == TRUE){
@@ -712,8 +767,9 @@ server <- function(input, output) {
        if(input$showsummary==TRUE){
        
      w=read.csv(input$file1$datapath,header=TRUE)
-     
+    # showModal(modalDialog("The code is currently running please wait", footer=NULL))
      summary(w)
+     #removeModal()
      }}
    })
    
@@ -739,10 +795,12 @@ server <- function(input, output) {
    output$corre <- renderPrint({
      if(!is.null(input$file1)){
        if(input$showcorrelation==TRUE){
-         
+        # 	showModal(modalDialog("The code is currently running please wait", footer=NULL))
        w=read.csv(input$file1$datapath,header=TRUE)
        e=w[,as.numeric(which(sapply(w,class)=="integer" | sapply(w,class)=="numeric") )]
+
        matriz_correlacao_completa(w)}
+	#removeModal()
       # cor(e, use = "pairwise.complete.obs")     }
    }})
    
@@ -753,12 +811,15 @@ server <- function(input, output) {
        if(input$showna==TRUE){
          
          w=read.csv(input$file1$datapath,header=TRUE)
+	showModal(modalDialog("The code is currently running please wait", footer=NULL))
          for(i in 1:ncol(w))
          cat("O numero percentual de elementos NA na coluna", names(w)[i], "é", sum(is.na(w[,i]))/length(w[,i]),"\n" )
+	removeModal()
        }}
    })
+
    
-   completar_distribuicao<- function(arquivo_ori){ # arquivo_ori e a distribuicao original
+     completar_distribuicao<- function(arquivo_ori){ # arquivo_ori e a distribuicao original
      w=arquivo_ori
      for(i in 1:ncol(w)){
        c=w[,i]
@@ -796,7 +857,7 @@ server <- function(input, output) {
    
    completar_reativo<-eventReactive(input$preencherdados,
     {
-     
+          showModal(modalDialog("The code is currently running please wait", footer=NULL))
        
          epislon=0.05
          w=read.csv(input$file1$datapath,header=TRUE)
@@ -852,6 +913,7 @@ server <- function(input, output) {
          print(dim(w)) 
        #w[,a]=dados[,a]
        write.csv(file="dataset_prenchido.csv",w,col.names = TRUE,row.names = FALSE)
+	removeModal()
    })
    
    
@@ -866,12 +928,15 @@ server <- function(input, output) {
    )
    
    funcoes_reativas<- reactive({
+
      completar_reativo()
+    # findBestSet()
      lixo=1
+
    })
    
    
-   output$distPlot <- renderPlot({
+   output$distPlot <- renderPlotly({
      #leitura()
      if(!is.null(input$file1)){
        funcoes_reativas()
@@ -899,6 +964,20 @@ server <- function(input, output) {
      
      #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
    })
+
+#      findBestSet<-eventReactive(input$preencherdados,
+#	{
+#		if(!is.null(input$file1)){
+ #      		w=read.csv(input$file1$datapath,header=TRUE)
+#		Goal=which(names(w)==input$X)
+#		z=best_vector(w,Goal,input$veclength,nrow(w),as.numeric(input$numtrigger))
+#		if(length(z)==0)
+#			z=best_vector(w,Goal,input$veclength,nrow(w),1)
+#		
+#		return(z)
+		#cat("The best set is",x,"it predicts",names(w)[Goal],"with",y*100,"% Accuracy\n")
+#	}
+#	})
 }
 
 # Run the application 
