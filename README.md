@@ -13,3 +13,5 @@ A PCA vizualization is provided as well, along with a way to explore your missin
 to run this code the user should use
 
 shiny::runGitHub(repo="CSV_DATA_Analysis",username="R-S-P-MODELS")
+
+A more recent version of this file can be run by building the dockerfile by cloning this repository and using docker build .
