@@ -12,14 +12,14 @@
 # Now to support data tables
 
 require(data.table)
-require(parallel)
+
 
 #
 ###inicio de definicao de funcao
 
 
 #funcao para completar variaveis categoricas
-source("Encontrar_candidatos_dataset_v1.R")
+source("../CSV_ANALYSIS/Encontrar_candidatos_dataset_v1.R")
 recuperar_categorica=function(c,d,delta){ # c sera a coluna com maior correlacao d a de valores faltando, delta o fator de aceitacao de valores iguais para valores reais
   #vec2=c()
   #b=d
@@ -77,7 +77,7 @@ predicao_importancia_v2_table=function(w,meta){ #espera um data.table
 }
 
 Matriz_Correlacao_retorno=function(w){
-   numericos=which(unlist(mclapply(w,class))=="numeric" | unlist(mclapply(sapply(w,class))=="integer") )
+   numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
   #print(dim(w))
   fac=w[,-..numericos]
   #       print(dim(fac))
@@ -120,7 +120,7 @@ return(p1)
 
 
 matriz_correlacao_completa=function(w){
-  numericos=which(unlist(mclapply(w,class))=="numeric" | (unlist(mclapply(w,class))=="integer") )
+  numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
   #print(dim(w))
   fac=w[,-numericos]
   #       print(dim(fac))
@@ -137,7 +137,7 @@ matriz_correlacao_completa=function(w){
   }
 }
 matriz_correlacao_completa_table=function(w){
-  numericos=which(unlist(mclapply(w,class))=="numeric" | (unlist(mclapply(w,class))=="integer") )
+  numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
   #print(dim(w))
   fac=w[,-..numericos]
   #       print(dim(fac))
@@ -935,7 +935,7 @@ output$bestvec <- renderPrint({
           selectInput("size", label = "Size",
                       choices = names(aux))
         else{
-          logic=mclapply(w,class) %in% c("numeric","integer")
+          logic=lapply(w,class) %in% c("numeric","integer")
           logic=!logic
           steps=which(logic)
           selectInput("size", label = "Label",
@@ -975,7 +975,7 @@ output$bestvec <- renderPrint({
       # selectInput("X", label = "X",choices = names(w))
       if(input$histogram==FALSE){
         if(input$Referenciador=="PCA Visualization"){
-          step=which(mclapply(w,class) %in% c("numeric","integer"))
+          step=which(lapply(w,class) %in% c("numeric","integer"))
           selectInput("Y", label = "Y",choices = names(w[,..step]))
         }
         else{
@@ -995,9 +995,9 @@ output$bestvec <- renderPrint({
       w=LeituraArquivo()
       #w=LeituraArquivoCsv()
       if(input$Referenciador=="PCA Visualization"){
-        step=which(mclapply(w,class) %in% c("numeric","integer"))
+        step=which(lapply(w,class) %in% c("numeric","integer"))
         selectInput("X", label = "X",choices = names(w[,..step]))
-        #selectInput("X", label = "X",choices = names(w[,which(mclapply(w,class) %in% c("numeric","integer"))]))
+        #selectInput("X", label = "X",choices = names(w[,which(lapply(w,class) %in% c("numeric","integer"))]))
       }
       else{
         selectInput("X", label = "X",choices = names(w))
@@ -1159,7 +1159,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
            
       # }
        #  w=lixo_w
-	 cordenadas_auxiliares=as.numeric(which(unlist(mclapply(w,class))=="integer" | unlist(mclapply(w,class))=="numeric") )
+	 cordenadas_auxiliares=as.numeric(which(sapply(w,class)=="integer" | sapply(w,class)=="numeric") )
          e=w[,..cordenadas_auxiliares]
          
          nomes=names(w)
@@ -1180,7 +1180,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
          }
          print(dim(w))
          #factors
-         f=as.numeric(which(unlist(mclapply(w,class))!="integer" & unlist(mclapply(w,class))!="numeric") )
+         f=as.numeric(which(sapply(w,class)!="integer" & sapply(w,class)!="numeric") )
          print(f)
          print(names(w)[f])
          for(i in f){
@@ -1249,13 +1249,16 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        eixoY=which(names(w)==input$Y)
        colorido=which(names(aux)==input$color)
        tamanho=which(names(aux)==input$size)
+	Auxiliar=unique(aux[,c(..eixoX,..eixoY,..colorido,..tamanho)])
+	names(Auxiliar)=c("n1","n2","n3","n4")
+	print(names(Auxiliar))
        if(input$histogram==FALSE){
          if(input$generate==FALSE)
-         ggplot(data=aux) +geom_point(aes(x=unlist(aux[,..eixoX]),y=unlist(aux[,..eixoY]),color=unlist(aux[,..colorido]),size=unlist(aux[,..tamanho])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
+         ggplot(data=Auxiliar) +geom_point(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
          else
-           fit_melhor_caso(unlist(aux[,..eixoX]),unlist(aux[,..eixoY]),cores =unlist(aux[,..colorido]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
+           fit_melhor_caso(unlist(Auxiliar[,1]),unlist(Auxiliar[,2]),cores =unlist(Auxiliar[,3]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
        else if(input$histogram==TRUE)
-         ggplot(data=aux) +geom_histogram(aes(x=unlist(aux[,..eixoX]),fill=unlist(aux[,..colorido])),stat = 'count' )+labs(x=input$X,fill=input$color )
+         ggplot(data=Auxiliar) +geom_histogram(aes(x=unlist(Auxiliar[,1]),fill=unlist(Auxiliar[,3])),stat = 'count' )+labs(x=input$X,fill=input$color )
        
        
        
@@ -1270,8 +1273,8 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        #funcoes_reativas()
        #w=read.csv(input$file1$datapath,header=TRUE)
        w=LeituraArquivo()
-       step=which(mclapply(w,class) %in% c("numeric","integer"))
-      # logic=mclapply(w,class) %in% c("numeric","integer")
+       step=which(lapply(w,class) %in% c("numeric","integer"))
+      # logic=lapply(w,class) %in% c("numeric","integer")
       # logic=!logic
       # steps=which(logic)
        w1=princomp(w[,..step],cor=TRUE)
