@@ -806,7 +806,8 @@ ui <- fluidPage(
         uiOutput("Eixoy"),
         uiOutput("cores"),
         uiOutput("tamanhos"),
-        actionButton("preencherdados","Completar Dataset"),
+	checkboxInput("PermitirPrenchimento","Marque este se queres que seu dataset seja prenchido (Pode demorar)",FALSE),
+	actionButton("preencherdados","Completar Dataset"),
         downloadButton("downloadData", "Download do dataset completado")
         ),
       
@@ -1237,7 +1238,8 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
      #leitura()
      if(!is.null(input$file1)){
       #funcoes_reativas()
-       completar_reativo()
+       if(input$PermitirPrenchimento)
+	completar_reativo()
        w=LeituraArquivo()
        a=c()
        for(i in 1:length(w[,1]))
