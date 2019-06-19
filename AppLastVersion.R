@@ -79,15 +79,21 @@ predicao_importancia_v2_table=function(w,meta){ #espera um data.table
 Matriz_Correlacao_retorno=function(w){
    numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
   #print(dim(w))
+   if(length(numericos)>0)
   fac=w[,-..numericos]
+   else
+     fac=w
   #       print(dim(fac))
-  numer=w[,..numericos]
+   if(length(numericos)>0)
+      numer=w[,..numericos]
+   
   #       print(dim(numer))
   if(ncol(fac)>0){
     for(i in 1:ncol(fac)){
       fac[,names(fac)[i] :=convert_fac_num(unlist(fac[,..i]))]
     }
-    fac=data.table(fac,numer)
+    if(length(numericos)>0)
+      fac=data.table(fac,numer)
 
    return( cor(fac,use = "pairwise.complete.obs"))
 
@@ -806,8 +812,7 @@ ui <- fluidPage(
         uiOutput("Eixoy"),
         uiOutput("cores"),
         uiOutput("tamanhos"),
-	checkboxInput("PermitirPrenchimento","Marque este se queres que seu dataset seja prenchido (Pode demorar)",FALSE),
-	actionButton("preencherdados","Completar Dataset"),
+        actionButton("preencherdados","Completar Dataset"),
         downloadButton("downloadData", "Download do dataset completado")
         ),
       
@@ -1161,6 +1166,9 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
       # }
        #  w=lixo_w
 	 cordenadas_auxiliares=as.numeric(which(sapply(w,class)=="integer" | sapply(w,class)=="numeric") )
+	 nomes=names(w)
+	 
+	 if(length(cordenadas_auxiliares)>0){
          e=w[,..cordenadas_auxiliares]
          
          nomes=names(w)
@@ -1181,6 +1189,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
          }
          print(dim(w))
          #factors
+	 }
          f=as.numeric(which(sapply(w,class)!="integer" & sapply(w,class)!="numeric") )
          print(f)
          print(names(w)[f])
@@ -1238,8 +1247,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
      #leitura()
      if(!is.null(input$file1)){
       #funcoes_reativas()
-       if(input$PermitirPrenchimento)
-	completar_reativo()
+       completar_reativo()
        w=LeituraArquivo()
        a=c()
        for(i in 1:length(w[,1]))
