@@ -76,6 +76,47 @@ predicao_importancia_v2_table=function(w,meta){ #espera um data.table
   
 }
 
+Matriz_Correlacao_retorno=function(w){
+   numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
+  #print(dim(w))
+  fac=w[,-..numericos]
+  #       print(dim(fac))
+  numer=w[,..numericos]
+  #       print(dim(numer))
+  if(ncol(fac)>0){
+    for(i in 1:ncol(fac)){
+      fac[,names(fac)[i] :=convert_fac_num(unlist(fac[,..i]))]
+    }
+    fac=data.table(fac,numer)
+
+   return( cor(fac,use = "pairwise.complete.obs"))
+
+    
+  }
+}
+
+MatrixggplotShiny=function(ly){
+require(reshape2)
+require(ggplot2)
+require(plotly)
+h1=melt(ly)
+p1=ggplot(data = h1, aes(x=Var1, y=Var2, fill=value)) + geom_tile() + labs(x="",y=""  ) + theme(axis.title.x=element_blank(),
+      axis.text.x=element_blank(),
+        axis.ticks.x=element_blank() ,axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank() )    
+p1=p1+scale_fill_gradientn(colours = rainbow(20)) 
+#return(ggplotly(p1))
+return(p1)
+#ggplotly(ggplot(data = h1, aes(x=Var1, y=Var2, fill=value)) + geom_tile() +scale_color_gradientn(colours = rainbow(20)) + labs(x="",y=""  ) + theme(axis.title.x=element_blank(),
+ #       axis.text.x=element_blank(),
+ #       axis.ticks.x=element_blank() ,axis.title.y=element_blank(),
+ #       axis.text.y=element_blank(),
+ #       axis.ticks.y=element_blank() )  )  
+
+
+
+}
 
 
 matriz_correlacao_completa=function(w){
@@ -765,6 +806,7 @@ ui <- fluidPage(
         uiOutput("Eixoy"),
         uiOutput("cores"),
         uiOutput("tamanhos"),
+        checkboxInput("PermitirPrenchimento","Marque este se queres que seu dataset seja prenchido (Pode demorar)",FALSE),
         actionButton("preencherdados","Completar Dataset"),
         downloadButton("downloadData", "Download do dataset completado")
         ),
@@ -775,7 +817,8 @@ ui <- fluidPage(
       mainPanel(
         tabsetPanel(id="Referenciador",
                     tabPanel("Data Exploration",plotlyOutput("distPlot")),
-                    tabPanel("PCA Visualization",plotlyOutput("PCAPlot"))
+                    tabPanel("PCA Visualization",plotlyOutput("PCAPlot")),
+		    tabPanel("Correlation Matrix Image",plotlyOutput("MatrixPlot"))
         ),
          conditionalPanel(
            condition = "input.showsummary == true",
@@ -1176,7 +1219,9 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
    output$distPlot <- renderPlotly({
      #leitura()
      if(!is.null(input$file1)){
-       #funcoes_reativas()
+      #funcoes_reativas()
+       if(input$PermitirPrenchimento)
+        completar_reativo()
        w=LeituraArquivo()
        a=c()
        for(i in 1:length(w[,1]))
@@ -1197,7 +1242,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
          ggplot(data=aux) +geom_histogram(aes(x=unlist(aux[,..eixoX]),fill=unlist(aux[,..colorido])),stat = 'count' )+labs(x=input$X,fill=input$color )
        
        
-       completar_reativo()
+       
      }
      
      #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
@@ -1209,10 +1254,17 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        #funcoes_reativas()
        #w=read.csv(input$file1$datapath,header=TRUE)
        w=LeituraArquivo()
+       w=as.data.frame(w)
+       index=as.numeric(which(sapply(sapply(w,unique),length)==1))
+       #w=as.data.frame(w)
+       if(length(index)>0)
+        w=w[,-index]
+       print(dim(w))
+       w=as.data.table(w)
        step=which(lapply(w,class) %in% c("numeric","integer"))
-      # logic=lapply(w,class) %in% c("numeric","integer")
-      # logic=!logic
-      # steps=which(logic)
+       # logic=lapply(w,class) %in% c("numeric","integer")
+       # logic=!logic
+       # steps=which(logic)
        w1=princomp(w[,..step],cor=TRUE)
        w2=w[,..step]
        carsHC <- hclust(dist(w1$scores), method = "ward.D2")
@@ -1253,6 +1305,32 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        
        #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
      } } ) 
+   
+   
+
+
+	output$MatrixPlot <- renderPlotly({
+     if(!is.null(input$file1)){
+      # caminho=input$file1$datapath
+      # reject=input$Palavras
+      # a=leitura(caminho)
+      # a=Palavras(a)
+      # b=ConversorMatriz(unlist(a),reject)
+      # b=MatrizDistanciasPalavras(b,method)
+     #source("Analise_texto.R")
+     w=LeituraArquivo()
+     m=Matriz_Correlacao_retorno(w)
+     grafico=MatrixggplotShiny(m)	  
+    # if(input$escolhas=="Media")
+    #   grafico= ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="media",linguagem=input$linguagens)
+    # else if(input$escolhas=="Desvio Padrao")
+    #   grafico=ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="desvio",input$linguagens)
+    # else if(input$escolhas=="Ambos")
+    #   grafico=ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="ambos",input$linguagens)
+     ggplotly(grafico)
+     }
+   })
+
 
 #      findBestSet<-eventReactive(input$preencherdados,
 #	{

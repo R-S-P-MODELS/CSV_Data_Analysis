@@ -773,10 +773,7 @@ ui <- fluidPage(
       
       # Show a plot of the generated distribution
       mainPanel(
-        tabsetPanel(id="Referenciador",
-                    tabPanel("Data Exploration",plotlyOutput("distPlot")),
-                    tabPanel("PCA Visualization",plotlyOutput("PCAPlot"))
-        ),
+         plotlyOutput("distPlot"),
          conditionalPanel(
            condition = "input.showsummary == true",
          verbatimTextOutput("sum")),
@@ -803,19 +800,6 @@ server <- function(input, output) {
     sliderInput("opcoes",label = "Numero de modelos a ser plotado",min = 1,max=3*input$poly,value=1)
     
   })
-  
-  LeituraArquivo<-reactive(
-    {
-      if(!is.null(input$file1)){
-        #funcoes_reativas()
-        w=fread(input$file1$datapath,header=TRUE)
-        return(w)
-      }
-      
-      
-    }
-    
-  )
 
 output$bestvec <- renderPrint({
      if(!is.null(input$file1)){
@@ -859,7 +843,7 @@ output$bestvec <- renderPrint({
   )
   output$tamanhos = renderUI({
     if(!is.null(input$file1)){
-      w=LeituraArquivo()
+      w=fread(input$file1$datapath,header=TRUE)
       a=c()
       for(i in 1:length(w[,1]))
         a[i]=1
@@ -870,61 +854,40 @@ output$bestvec <- renderPrint({
   #  selectInput("Y", label = "Y",choices = names(aux))
     
    # selectInput("color", label = "Color",choices = names(aux))
-      if(input$histogram==FALSE){
-        if(input$Referenciador=="Data Exploration")
-          selectInput("size", label = "Size",
-                      choices = names(aux))
-        else{
-          logic=lapply(w,class) %in% c("numeric","integer")
-          logic=!logic
-          steps=which(logic)
-          selectInput("size", label = "Label",
-                      choices = names(aux)[steps])
-        }
-      }
+    if(input$histogram==FALSE)
+      selectInput("size", label = "Size",
+                choices = names(aux))
+    
     }
      })
   output$cores = renderUI({
     if(!is.null(input$file1)){
-      #w=read.csv(input$file1$datapath,header=TRUE)
-      w=LeituraArquivo()
+      w=fread(input$file1$datapath,header=TRUE)
       a=c()
       for(i in 1:length(w[,1]))
         a[i]=1
-      aux=data.table(w,a)
+      aux=data.frame(w,a)
       names(aux)[length(aux)]='None'
-      # selectInput("X", label = "X",choices = names(aux))
+      selectInput("X", label = "X",choices = names(aux))
       
-      # selectInput("Y", label = "Y",choices = names(aux))
-      if(input$Referenciador=="PCA Visualization"){
-        numericInput("color",label="Number of clusters",value = 3,min=2,max=20)
-      }
-      else{
-        selectInput("color", label = "Color",choices = names(aux))
-      }
+      selectInput("Y", label = "Y",choices = names(aux))
       
-      
+      selectInput("color", label = "Color",choices = names(aux))
+     
       
     }
   })
   
+  
   output$Eixoy = renderUI({
     if(!is.null(input$file1)){
-      w=LeituraArquivo()
-      #w=read.csv(input$file1$datapath,header=TRUE)
-      # selectInput("X", label = "X",choices = names(w))
-      if(input$histogram==FALSE){
-        if(input$Referenciador=="PCA Visualization"){
-          step=which(lapply(w,class) %in% c("numeric","integer"))
-          selectInput("Y", label = "Y",choices = names(w[,..step]))
-        }
-        else{
-          selectInput("Y", label = "Y",choices = names(w))
-        }
-        
-        #selectInput("Y", label = "Y",choices = names(w))
-      }
       
+      w=fread(input$file1$datapath,header=TRUE)
+     # selectInput("X", label = "X",choices = names(w))
+      if(input$histogram==FALSE)
+      selectInput("Y", label = "Y",choices = names(w))
+      
+    
       
       
     }
@@ -932,22 +895,13 @@ output$bestvec <- renderPrint({
   
   output$Eixox = renderUI({
     if(!is.null(input$file1)){
-      w=LeituraArquivo()
-      #w=read.csv(input$file1$datapath,header=TRUE)
-      if(input$Referenciador=="PCA Visualization"){
-        step=which(lapply(w,class) %in% c("numeric","integer"))
-        selectInput("X", label = "X",choices = names(w[,..step]))
-        #selectInput("X", label = "X",choices = names(w[,which(lapply(w,class) %in% c("numeric","integer"))]))
-      }
-      else{
-        selectInput("X", label = "X",choices = names(w))
-      }
+      w=fread(input$file1$datapath,header=TRUE)
+      selectInput("X", label = "X",choices = names(w))
       
       
       
     }
   })
-  
   
   
   
@@ -961,7 +915,7 @@ output$bestvec <- renderPrint({
      if(!is.null(input$file1)){
        if(input$showsummary==TRUE){
        
-     w=LeituraArquivo()
+     w=fread(input$file1$datapath,header=TRUE)
     # showModal(modalDialog("The code is currently running please wait", footer=NULL))
      summary(w)
      #removeModal()
@@ -972,7 +926,7 @@ output$bestvec <- renderPrint({
      if(!is.null(input$file1)){
        if(input$showfeature==TRUE){
          
-         w=LeituraArquivo()
+         w=fread(input$file1$datapath,header=TRUE)
          eixoX=which(names(w)==input$X)
          print(grupo(w,eixoX,input$separacoes))
        }}
@@ -991,7 +945,7 @@ output$bestvec <- renderPrint({
      if(!is.null(input$file1)){
        if(input$showcorrelation==TRUE){
         # 	showModal(modalDialog("The code is currently running please wait", footer=NULL))
-       w=LeituraArquivo()
+       w=fread(input$file1$datapath,header=TRUE)
        #e=w[,..as.numeric(which(sapply(w,class)=="integer" | sapply(w,class)=="numeric") )]
 #	w=data.frame(w)
        matriz_correlacao_completa_table(w)}
@@ -1005,7 +959,7 @@ output$bestvec <- renderPrint({
      if(!is.null(input$file1)){
        if(input$showna==TRUE){
          
-         w=LeituraArquivo()
+         w=fread(input$file1$datapath,header=TRUE)
 	showModal(modalDialog("The code is currently running please wait", footer=NULL))
          for(i in 1:ncol(w))
          cat("O numero percentual de elementos NA na coluna", names(w)[i], "é", sum(is.na(w[,..i]))/length(w[,..i]),"\n" )
@@ -1091,7 +1045,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
           showModal(modalDialog("The code is currently running please wait", footer=NULL))
        
          epislon=0.05
-         w=LeituraArquivo()
+         w=fread(input$file1$datapath,header=TRUE)
        #  lixo_w=w
        #for(i in 1:ncol(w)){
       #     if(length(unique(w[,i]) )/length(w[,i]) < epislon & (class(w[,i])=="numeric"|class(w[,i])=="integer") & (sum(!is.na(w[,i]) )>0 )   ) # conversao para fatores caso existam elementos mas seja pouca variedade
@@ -1176,8 +1130,8 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
    output$distPlot <- renderPlotly({
      #leitura()
      if(!is.null(input$file1)){
-       #funcoes_reativas()
-       w=LeituraArquivo()
+     #  funcoes_reativas()
+       w=fread(input$file1$datapath,header=TRUE)
        a=c()
        for(i in 1:length(w[,1]))
          a[i]=1
@@ -1197,62 +1151,11 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
          ggplot(data=aux) +geom_histogram(aes(x=unlist(aux[,..eixoX]),fill=unlist(aux[,..colorido])),stat = 'count' )+labs(x=input$X,fill=input$color )
        
        
-       completar_reativo()
+       
      }
      
      #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
    })
-   
-   output$PCAPlot <- renderPlotly({
-     #leitura()
-     if(!is.null(input$file1)){
-       #funcoes_reativas()
-       #w=read.csv(input$file1$datapath,header=TRUE)
-       w=LeituraArquivo()
-       step=which(lapply(w,class) %in% c("numeric","integer"))
-      # logic=lapply(w,class) %in% c("numeric","integer")
-      # logic=!logic
-      # steps=which(logic)
-       w1=princomp(w[,..step],cor=TRUE)
-       w2=w[,..step]
-       carsHC <- hclust(dist(w1$scores), method = "ward.D2")
-       v=as.numeric(input$color)
-       carsClusters <- cutree(carsHC, k = v)
-       carsDf <- data.frame(w1$scores, "cluster" = factor(carsClusters))
-       carsDf <- transform(carsDf, cluster_name = paste("Cluster",carsClusters))
-       print(input$size)
-       print(names(w))
-       LabelChoice=which(names(w)==input$size)
-       print(LabelChoice)
-       a=c()
-       for(i in 1:length(w[,1]))
-         a[i]=1
-       aux=data.frame(w,a)
-       names(aux)[length(aux)]='None'
-       eixoX=which(names(w2)==input$X)
-       eixoY=which(names(w2)==input$Y)
-       #colorido=which(names(aux)==input$color)
-       #tamanho=which(names(aux)==input$size)
-       
-       p1 <- ggplot(carsDf,aes(x=carsDf[,eixoX], y=carsDf[,eixoY])) +
-         theme_classic() +
-         geom_hline(yintercept = 0, color = "gray70") +
-         geom_vline(xintercept = 0, color = "gray70") +
-         geom_point(aes(color = cluster), alpha = 0.55, size = 3) +
-         xlab(eixoX) +
-         ylab(eixoY) + 
-         xlim(-5, 6) + 
-         ggtitle("PCA Clusters") 
-       #print(unlist(w[,..LabelChoice]))
-       #print(w[[LabelChoice]])
-       #print(nrow(carsDf))
-       
-       p1= p1 + geom_text(aes(y = carsDf[,eixoY], label =  w[[LabelChoice]]  ))
-       ggplotly(p1)
-       
-       
-       #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
-     } } ) 
 
 #      findBestSet<-eventReactive(input$preencherdados,
 #	{

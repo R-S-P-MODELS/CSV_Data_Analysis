@@ -69,13 +69,54 @@ predicao_importancia_v2=function(w,meta){ #essa ta incompleta
 
 predicao_importancia_v2_table=function(w,meta){ #espera um data.table
   a=matriz_correlacao_completa_table(w)
-  nome1=names(w)[meta]
+   nome1=names(w)[meta]
   indice=which(nome1==names(a[,1]))
-  valores=as.numeric(a[,..indice])
-  print(a[order(abs(a[,..indice])),..indice])
+  valores=as.numeric(a[,indice])
+  print(a[order(abs(a[,indice])),indice])
   
 }
 
+Matriz_Correlacao_retorno=function(w){
+   numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
+  #print(dim(w))
+  fac=w[,-..numericos]
+  #       print(dim(fac))
+  numer=w[,..numericos]
+  #       print(dim(numer))
+  if(ncol(fac)>0){
+    for(i in 1:ncol(fac)){
+      fac[,names(fac)[i] :=convert_fac_num(unlist(fac[,..i]))]
+    }
+    fac=data.table(fac,numer)
+
+   return( cor(fac,use = "pairwise.complete.obs"))
+
+    
+  }
+}
+
+MatrixggplotShiny=function(ly){
+require(reshape2)
+require(ggplot2)
+require(plotly)
+h1=melt(ly)
+p1=ggplot(data = h1, aes(x=Var1, y=Var2, fill=value)) + geom_tile() + labs(x="",y=""  ) + theme(axis.title.x=element_blank(),
+      axis.text.x=element_blank(),
+        axis.ticks.x=element_blank() ,axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank() )    
+p1=p1+scale_fill_gradientn(colours = rainbow(20)) 
+#return(ggplotly(p1))
+return(p1)
+#ggplotly(ggplot(data = h1, aes(x=Var1, y=Var2, fill=value)) + geom_tile() +scale_color_gradientn(colours = rainbow(20)) + labs(x="",y=""  ) + theme(axis.title.x=element_blank(),
+ #       axis.text.x=element_blank(),
+ #       axis.ticks.x=element_blank() ,axis.title.y=element_blank(),
+ #       axis.text.y=element_blank(),
+ #       axis.ticks.y=element_blank() )  )  
+
+
+
+}
 
 
 matriz_correlacao_completa=function(w){
@@ -732,10 +773,11 @@ ui <- fluidPage(
         fileInput("file1", "Insira o arquivo a ser analisado.csv",
                   accept = c(
                     "text/csv",".csv") ),
+        selectInput("KindofGraph","Selecione tipo de plot",choices=c('Histogram','Points','BoxPlot','Collumns')),
         checkboxInput("showsummary", "Show Summary", FALSE),
         checkboxInput("showcorrelation", "Show correlation matrix", FALSE),
         checkboxInput("showna","Show the relative amount of missing data",FALSE),
-        checkboxInput("showfeature","Show the featurizer(uses x as variable to predict)",FALSE),
+       # checkboxInput("showfeature","Show the featurizer(uses x as variable to predict)",FALSE),
         checkboxInput("showfunctional","Show the functional dependency(uses x as variable to predict)",FALSE),
 	checkboxInput("showbestvector","Show The minimum set of aproximate functional dependency(uses x as variable to predict)",FALSE),
 	 conditionalPanel(
@@ -758,9 +800,9 @@ ui <- fluidPage(
 		
 ),
         
-        conditionalPanel(
-          condition = "is.null(input.file1) == true",
-          checkboxInput("histogram","Show histogram of x")),
+        #conditionalPanel(
+        #  condition = "is.null(input.file1) == true",
+        #  checkboxInput("histogram","Show histogram of x")),
         uiOutput("Eixox"),
         uiOutput("Eixoy"),
         uiOutput("cores"),
@@ -775,7 +817,8 @@ ui <- fluidPage(
       mainPanel(
         tabsetPanel(id="Referenciador",
                     tabPanel("Data Exploration",plotlyOutput("distPlot")),
-                    tabPanel("PCA Visualization",plotlyOutput("PCAPlot"))
+                    tabPanel("PCA Visualization",plotlyOutput("PCAPlot")),
+		    tabPanel("Correlation Matrix Image",plotlyOutput("MatrixPlot"))
         ),
          conditionalPanel(
            condition = "input.showsummary == true",
@@ -808,8 +851,26 @@ server <- function(input, output) {
     {
       if(!is.null(input$file1)){
         #funcoes_reativas()
+	print("feito leitura")
         w=fread(input$file1$datapath,header=TRUE)
         return(w)
+
+      }
+      
+      
+    }
+    
+  )
+
+  LeituraArquivoCsv<-reactive(
+    {
+      if(!is.null(input$file1)){
+        #funcoes_reativas()
+	print("feito leitura")
+        w=fread(input$file1$datapath,header=TRUE)
+	w1=as.data.frame(w)
+        return(w1)
+
       }
       
       
@@ -824,7 +885,7 @@ output$bestvec <- renderPrint({
 	#cat("tentarei ler\n")
 	percentage=input$percent/100.0
 	showModal(modalDialog("The code is currently running please wait", footer=NULL))
-       	w=read.csv(input$file1$datapath,header=TRUE)
+	w=LeituraArquivoCsv()
 #	print("lido")
 	Goal=which(names(w)==input$X)
 	if(length(unique(w[,Goal]))==nrow(w)){
@@ -851,7 +912,7 @@ output$bestvec <- renderPrint({
   output$separacoes=renderUI({
     if(!is.null(input$file1)){
    if(input$showfeature == TRUE){
-     w=read.csv(input$file1$datapath,header=TRUE)
+     w=LeituraArquivoCsv()
      
      sliderInput(inputId = "separacoes",min =2,max =0.5*nrow(w),value = 2,label="numero de subconjuntos do dataset"  ) 
    }
@@ -870,7 +931,7 @@ output$bestvec <- renderPrint({
   #  selectInput("Y", label = "Y",choices = names(aux))
     
    # selectInput("color", label = "Color",choices = names(aux))
-      if(input$histogram==FALSE){
+      if(input$KindofGraph!="Histogram"){
         if(input$Referenciador=="Data Exploration")
           selectInput("size", label = "Size",
                       choices = names(aux))
@@ -886,7 +947,7 @@ output$bestvec <- renderPrint({
      })
   output$cores = renderUI({
     if(!is.null(input$file1)){
-      #w=read.csv(input$file1$datapath,header=TRUE)
+      #w=LeituraArquivoCsv()
       w=LeituraArquivo()
       a=c()
       for(i in 1:length(w[,1]))
@@ -911,9 +972,9 @@ output$bestvec <- renderPrint({
   output$Eixoy = renderUI({
     if(!is.null(input$file1)){
       w=LeituraArquivo()
-      #w=read.csv(input$file1$datapath,header=TRUE)
+      #w=LeituraArquivoCsv()
       # selectInput("X", label = "X",choices = names(w))
-      if(input$histogram==FALSE){
+      if(input$KindofGraph!="Histogram"){
         if(input$Referenciador=="PCA Visualization"){
           step=which(lapply(w,class) %in% c("numeric","integer"))
           selectInput("Y", label = "Y",choices = names(w[,..step]))
@@ -933,7 +994,7 @@ output$bestvec <- renderPrint({
   output$Eixox = renderUI({
     if(!is.null(input$file1)){
       w=LeituraArquivo()
-      #w=read.csv(input$file1$datapath,header=TRUE)
+      #w=LeituraArquivoCsv()
       if(input$Referenciador=="PCA Visualization"){
         step=which(lapply(w,class) %in% c("numeric","integer"))
         selectInput("X", label = "X",choices = names(w[,..step]))
@@ -982,9 +1043,9 @@ output$bestvec <- renderPrint({
      if(!is.null(input$file1)){
        if(input$showfunctional==TRUE){
          
-         w=read.csv(input$file1$datapath,header=TRUE)
+         w=LeituraArquivo()
          eixoX=which(names(w)==input$X)
-         print(predicao_importancia_v2(w,eixoX))
+         print(predicao_importancia_v2_table(w,eixoX))
        }}
    })
    output$corre <- renderPrint({
@@ -1176,7 +1237,8 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
    output$distPlot <- renderPlotly({
      #leitura()
      if(!is.null(input$file1)){
-       #funcoes_reativas()
+      #funcoes_reativas()
+   #   completar_reativo()
        w=LeituraArquivo()
        a=c()
        for(i in 1:length(w[,1]))
@@ -1188,16 +1250,20 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        eixoY=which(names(w)==input$Y)
        colorido=which(names(aux)==input$color)
        tamanho=which(names(aux)==input$size)
-       if(input$histogram==FALSE){
-         if(input$generate==FALSE)
+       if(input$generate==TRUE)
+         fit_melhor_caso(unlist(aux[,..eixoX]),unlist(aux[,..eixoY]),cores =unlist(aux[,..colorido]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )
+       else if(input$KindofGraph=="Points")
          ggplot(data=aux) +geom_point(aes(x=unlist(aux[,..eixoX]),y=unlist(aux[,..eixoY]),color=unlist(aux[,..colorido]),size=unlist(aux[,..tamanho])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
-         else
-           fit_melhor_caso(unlist(aux[,..eixoX]),unlist(aux[,..eixoY]),cores =unlist(aux[,..colorido]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
-       else if(input$histogram==TRUE)
+       
+       else if(input$KindofGraph=="Histogram")
          ggplot(data=aux) +geom_histogram(aes(x=unlist(aux[,..eixoX]),fill=unlist(aux[,..colorido])),stat = 'count' )+labs(x=input$X,fill=input$color )
+       else if(input$KindofGraph=="BoxPlot")
+         ggplot(data=aux) +geom_boxplot(aes(x=unlist(aux[,..eixoX]),y=unlist(aux[,..eixoY]),fill=unlist(aux[,..colorido]),size=unlist(aux[,..tamanho])) )+labs(x=input$X,y=input$Y,fill=input$color,size=input$size )
+       else if(input$KindofGraph=="Collumns")
+         ggplot(data=aux) +geom_col(aes(x=unlist(aux[,..eixoX]),y=unlist(aux[,..eixoY]),fill=unlist(aux[,..colorido]),size=unlist(aux[,..tamanho])) )+labs(x=input$X,y=input$Y,fill=input$color,size=input$size )
+      # else if(input$KindofGraph=="Smooth")
+       #  ggplot(data=aux) +geom_smooth(aes(x=unlist(aux[,..eixoX]),y=unlist(aux[,..eixoY]),color=unlist(aux[,..colorido]),size=unlist(aux[,..tamanho])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
        
-       
-       completar_reativo()
      }
      
      #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
@@ -1253,6 +1319,31 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        
        #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
      } } ) 
+
+
+
+	output$MatrixPlot <- renderPlotly({
+     if(!is.null(input$file1)){
+      # caminho=input$file1$datapath
+      # reject=input$Palavras
+      # a=leitura(caminho)
+      # a=Palavras(a)
+      # b=ConversorMatriz(unlist(a),reject)
+      # b=MatrizDistanciasPalavras(b,method)
+     #source("Analise_texto.R")
+     w=LeituraArquivo()
+     m=Matriz_Correlacao_retorno(w)
+     grafico=MatrixggplotShiny(m)	  
+    # if(input$escolhas=="Media")
+    #   grafico= ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="media",linguagem=input$linguagens)
+    # else if(input$escolhas=="Desvio Padrao")
+    #   grafico=ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="desvio",input$linguagens)
+    # else if(input$escolhas=="Ambos")
+    #   grafico=ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="ambos",input$linguagens)
+     ggplotly(grafico)
+     }
+   })
+
 
 #      findBestSet<-eventReactive(input$preencherdados,
 #	{
