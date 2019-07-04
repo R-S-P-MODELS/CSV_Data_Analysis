@@ -19,7 +19,9 @@ require(data.table)
 
 
 #funcao para completar variaveis categoricas
-source("../CSV_ANALYSIS/Encontrar_candidatos_dataset_v1.R")
+source("Encontrar_candidatos_dataset_v1.R")
+
+require(gg3D)
 recuperar_categorica=function(c,d,delta){ # c sera a coluna com maior correlacao d a de valores faltando, delta o fator de aceitacao de valores iguais para valores reais
   #vec2=c()
   #b=d
@@ -80,7 +82,7 @@ Matriz_Correlacao_retorno=function(w){
    numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
   #print(dim(w))
    if(length(numericos)>0)
-  fac=w[,-..numericos]
+    fac=w[,-..numericos]
    else
      fac=w
   #       print(dim(fac))
@@ -91,20 +93,22 @@ Matriz_Correlacao_retorno=function(w){
   if(ncol(fac)>0){
     for(i in 1:ncol(fac)){
       fac[,names(fac)[i] :=convert_fac_num(unlist(fac[,..i]))]
+    } 
     }
     if(length(numericos)>0)
       fac=data.table(fac,numer)
-
+    print(dim(fac))
    return( cor(fac,use = "pairwise.complete.obs"))
 
     
   }
-}
+
 
 MatrixggplotShiny=function(ly){
 require(reshape2)
 require(ggplot2)
 require(plotly)
+  print(dim(ly))
 h1=melt(ly)
 p1=ggplot(data = h1, aes(x=Var1, y=Var2, fill=value)) + geom_tile() + labs(x="",y=""  ) + theme(axis.title.x=element_blank(),
       axis.text.x=element_blank(),
@@ -810,6 +814,7 @@ ui <- fluidPage(
           checkboxInput("histogram","Show histogram of x")),
         uiOutput("Eixox"),
         uiOutput("Eixoy"),
+        uiOutput("Eixoz"),
         uiOutput("cores"),
         uiOutput("tamanhos"),
         actionButton("preencherdados","Completar Dataset"),
@@ -823,7 +828,8 @@ ui <- fluidPage(
         tabsetPanel(id="Referenciador",
                     tabPanel("Data Exploration",plotlyOutput("distPlot")),
                     tabPanel("PCA Visualization",plotlyOutput("PCAPlot")),
-		    tabPanel("Correlation Matrix Image",plotlyOutput("MatrixPlot"))
+		    tabPanel("Correlation Matrix Image",plotlyOutput("MatrixPlot")),
+		    tabPanel("3D plots",plotlyOutput("threeDplots"))
         ),
          conditionalPanel(
            condition = "input.showsummary == true",
@@ -940,12 +946,18 @@ output$bestvec <- renderPrint({
         if(input$Referenciador=="Data Exploration")
           selectInput("size", label = "Size",
                       choices = names(aux))
+        else if(input$Referenciador=="3D plots"){
+          Indices=sapply(aux,class) %in% c('numeric','integer')
+          selectInput("size", label = "Size",
+                      choices = names(aux[,..Indices]))
+          
+        }
         else{
           logic=lapply(w,class) %in% c("numeric","integer")
           logic=!logic
           steps=which(logic)
           selectInput("size", label = "Label",
-                      choices = names(aux)[steps])
+                      choices = c(names(aux)[steps],'None') )
         }
       }
     }
@@ -992,6 +1004,29 @@ output$bestvec <- renderPrint({
       }
       
       
+      
+    }
+  })
+  
+  output$Eixoz = renderUI({
+    if(!is.null(input$file1)){
+      if(input$Referenciador=="3D plots"){
+      w=LeituraArquivo()
+      #w=LeituraArquivoCsv()
+      # selectInput("X", label = "X",choices = names(w))
+      if(input$histogram==FALSE){
+        if(input$Referenciador=="PCA Visualization"){
+          step=which(lapply(w,class) %in% c("numeric","integer"))
+          selectInput("Z", label = "Z",choices = names(w[,..step]))
+        }
+        else{
+          selectInput("Z", label = "Z",choices = names(w))
+        }
+        
+        #selectInput("Y", label = "Y",choices = names(w))
+      }
+      
+      }
       
     }
   })
@@ -1277,6 +1312,54 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
      #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
    })
    
+   
+   output$threeDplots <- renderPlotly({
+     #leitura()
+     if(!is.null(input$file1)){
+       #funcoes_reativas()
+       completar_reativo()
+       w=LeituraArquivo()
+       a=c()
+       for(i in 1:length(w[,1]))
+         a[i]=1
+       aux=data.table(w,a)
+       print(dim(aux))
+       names(aux)[length(aux)]='None'
+       eixoX=which(names(w)==input$X)
+       eixoY=which(names(w)==input$Y)
+       eixoZ=which(names(w)==input$Z)
+       colorido=which(names(aux)==input$color)
+       tamanho=which(names(aux)==input$size)
+       Auxiliar=unique(aux[,c(..eixoX,..eixoY,..eixoZ,..colorido,..tamanho)])
+       names(Auxiliar)=c("n1","n2","n3","n4","n5")
+       print(names(Auxiliar))
+       if(input$histogram==FALSE){
+         if(input$generate==FALSE)
+        #  ggplotly( ggplot(Auxiliar, aes(x=unlist(Auxiliar[,1]), y=unlist(Auxiliar[,2]), z=unlist(Auxiliar[,3]), color=unlist(Auxiliar[,4]),size=unlist(Auxiliar[,5]) ) )+ 
+         #  theme_void() +
+          # axes_3D() +
+           #stat_3D() +
+          #labs(x=input$X,y=input$Y,z=input$Z,colour=input$color,size=input$size ) )
+           plot_ly(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),z=unlist(Auxiliar[,3]),color = unlist(Auxiliar[,4]),size = unlist(Auxiliar[,5]),type="scatter3d",mode="markers" ) %>% layout(
+             title = "Data Visualization",
+             scene = list(
+               xaxis = list(title = input$X),
+               yaxis = list(title = input$Y),
+               zaxis = list(title = input$Z)
+             ))
+           #ggplot(data=Auxiliar) +geom_point(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
+         else
+           fit_melhor_caso(unlist(Auxiliar[,1]),unlist(Auxiliar[,2]),cores =unlist(Auxiliar[,3]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
+       else if(input$histogram==TRUE)
+         ggplot(data=Auxiliar) +geom_histogram(aes(x=unlist(Auxiliar[,1]),fill=unlist(Auxiliar[,3])),stat = 'count' )+labs(x=input$X,fill=input$color )
+       
+       
+       
+     }
+     
+     #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
+   })
+   
    output$PCAPlot <- renderPlotly({
      #leitura()
      if(!is.null(input$file1)){
@@ -1320,8 +1403,8 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        #print(unlist(w[,..LabelChoice]))
        #print(w[[LabelChoice]])
        #print(nrow(carsDf))
-       
-       p1= p1 + geom_text(aes(y = carsDf[,eixoY], label =  w[[LabelChoice]]  ))
+       if(length(LabelChoice)>0)
+        p1= p1 + geom_text(aes(y = carsDf[,eixoY], label =  w[[LabelChoice]]  ))
        ggplotly(p1)
        
        
@@ -1341,6 +1424,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
      #source("Analise_texto.R")
      w=LeituraArquivo()
      m=Matriz_Correlacao_retorno(w)
+     print(dim(m))
      grafico=MatrixggplotShiny(m)	  
     # if(input$escolhas=="Media")
     #   grafico= ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="media",linguagem=input$linguagens)
@@ -1370,4 +1454,3 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
