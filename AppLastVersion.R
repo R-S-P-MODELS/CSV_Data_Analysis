@@ -975,7 +975,12 @@ output$bestvec <- renderPrint({
       
       # selectInput("Y", label = "Y",choices = names(aux))
       if(input$Referenciador=="PCA Visualization"){
-        numericInput("color",label="Number of clusters",value = 3,min=2,max=20)
+        #Classes=which(as.numeric(sapply(w,class) %in% c('character','factor')))
+        #print(c("Classe,",Classes) )
+        #Classes=c(Classes,ncol(aux))
+        #print(names(aux)[Classes])
+        #selectInput("color", label = "Color",choices = names(aux)[Classes])
+        numericInput("color",label="Number of components",value = 2,min=2,max=ncol(w))
       }
       else{
         selectInput("color", label = "Color",choices = names(aux))
@@ -993,8 +998,13 @@ output$bestvec <- renderPrint({
       # selectInput("X", label = "X",choices = names(w))
       if(input$histogram==FALSE){
         if(input$Referenciador=="PCA Visualization"){
-          step=which(lapply(w,class) %in% c("numeric","integer"))
-          selectInput("Y", label = "Y",choices = names(w[,..step]))
+          Results=GerarPCA()
+          step=Results$Variables
+          w=as=data.frame(w)
+          w=w[,step]
+          names(w)=paste('Component',1:ncol(w),sep="")
+          #step=which(lapply(w,class) %in% c("numeric","integer"))
+          selectInput("Y", label = "Y",choices = names(w))
         }
         else{
           selectInput("Y", label = "Y",choices = names(w))
@@ -1036,8 +1046,13 @@ output$bestvec <- renderPrint({
       w=LeituraArquivo()
       #w=LeituraArquivoCsv()
       if(input$Referenciador=="PCA Visualization"){
-        step=which(lapply(w,class) %in% c("numeric","integer"))
-        selectInput("X", label = "X",choices = names(w[,..step]))
+        Results=GerarPCA()
+        step=Results$Variables
+        w=as=data.frame(w)
+        w=w[,step]
+        names(w)=paste('Component',1:ncol(w),sep="")
+        #step=which(lapply(w,class) %in% c("numeric","integer"))
+        selectInput("X", label = "X",choices = names(w))
         #selectInput("X", label = "X",choices = names(w[,which(lapply(w,class) %in% c("numeric","integer"))]))
       }
       else{
@@ -1298,13 +1313,16 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
 	names(Auxiliar)=c("n1","n2","n3","n4")
 	print(names(Auxiliar))
        if(input$histogram==FALSE){
-         if(input$generate==FALSE)
-         ggplot(data=Auxiliar) +geom_point(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
-         else
+         if(input$generate==FALSE){
+         Graph=ggplot(data=Auxiliar) +geom_point(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
+         ggplotly(Graph,dragmode=pan)
+         } 
+          else
            fit_melhor_caso(unlist(Auxiliar[,1]),unlist(Auxiliar[,2]),cores =unlist(Auxiliar[,3]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
-       else if(input$histogram==TRUE)
-         ggplot(data=Auxiliar) +geom_histogram(aes(x=unlist(Auxiliar[,1]),fill=unlist(Auxiliar[,3])),stat = 'count' )+labs(x=input$X,fill=input$color )
-       
+       else if(input$histogram==TRUE){
+         Graph=ggplot(data=Auxiliar) +geom_histogram(aes(x=unlist(Auxiliar[,1]),fill=unlist(Auxiliar[,3])),stat = 'count' )+labs(x=input$X,fill=input$color )
+         ggplotly(Graph,dragmode=pan)
+       }
        
        
      }
@@ -1360,25 +1378,52 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
      #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
    })
    
+   GerarPCA<-reactive({
+     source("PCAOtimizado.R")
+     #funcoes_reativas()
+     print(c("Grupos",input$color))
+     #w=read.csv(input$file1$datapath,header=TRUE)
+     w=LeituraArquivo()
+     step=which(lapply(w,class) %in% c("numeric","integer"))
+     # logic=lapply(w,class) %in% c("numeric","integer")
+     # logic=!logic
+     univariate=which(sapply(sapply(w[,..step],unique),length)==1)
+     if(length(univariate)>0)
+       step=step[-univariate]
+     # steps=which(logic)
+     PC = tryCatch({
+       data=w[,..step]
+       data=as.data.frame(scale(data,center=TRUE))
+       PCA=NewPCA(data,input$color)
+       print('Deu certo')
+       step=step[1:input$color]
+     }, error = function(e) {
+       w1=prcomp(w[,..step],scale=TRUE)
+       PCA=w1$x
+     })
+     #w1=prcomp(w[,..step],scale=TRUE)
+     #PCA=w1$x
+     Results=list(PCA=PCA,Variables=step)
+     return(Results)
+   })
+   
    output$PCAPlot <- renderPlotly({
      #leitura()
      if(!is.null(input$file1)){
-       #funcoes_reativas()
-       #w=read.csv(input$file1$datapath,header=TRUE)
        w=LeituraArquivo()
-       step=which(lapply(w,class) %in% c("numeric","integer"))
-      # logic=lapply(w,class) %in% c("numeric","integer")
-      # logic=!logic
-      # steps=which(logic)
-       w1=princomp(w[,..step],cor=TRUE)
+       Results=GerarPCA()
+       step=Results$Variables
+       PCA=Results$PCA
        w2=w[,..step]
-       carsHC <- hclust(dist(w1$scores), method = "ward.D2")
-       v=as.numeric(input$color)
-       carsClusters <- cutree(carsHC, k = v)
-       carsDf <- data.frame(w1$scores, "cluster" = factor(carsClusters))
-       carsDf <- transform(carsDf, cluster_name = paste("Cluster",carsClusters))
-       print(input$size)
-       print(names(w))
+       
+       names(w2)=paste('Component',1:ncol(w2),sep="")
+      # carsHC <- hclust(dist(w1$scores), method = "ward.D2")
+       #v=as.numeric(input$color)
+      # carsClusters <- cutree(carsHC, k = v)
+      # carsDf <- data.frame(w1$scores, "cluster" = factor(carsClusters))
+      # carsDf <- transform(carsDf, cluster_name = paste("Cluster",carsClusters))
+      # print(input$size)
+      # print(names(w))
        LabelChoice=which(names(w)==input$size)
        print(LabelChoice)
        a=c()
@@ -1388,24 +1433,43 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        names(aux)[length(aux)]='None'
        eixoX=which(names(w2)==input$X)
        eixoY=which(names(w2)==input$Y)
-       #colorido=which(names(aux)==input$color)
+       colorido=which(names(aux)==input$size)
+       print(input$size)
+       print(names(aux))
+       #names(w1$x)=names(w)
        #tamanho=which(names(aux)==input$size)
-       
-       p1 <- ggplot(carsDf,aes(x=carsDf[,eixoX], y=carsDf[,eixoY])) +
+       PCA=as.data.frame(PCA)
+       color=aux[,colorido ]
+       names(PCA)=paste('Component',1:ncol(PCA),sep="")
+       #print(c(length(w1$x[,eixoX]),length(w1$x[,eixoY]),length(aux[,colorido])  )   )
+       p1 <-ggplot(PCA) + 
          theme_classic() +
          geom_hline(yintercept = 0, color = "gray70") +
          geom_vline(xintercept = 0, color = "gray70") +
-         geom_point(aes(color = cluster), alpha = 0.55, size = 3) +
-         xlab(eixoX) +
-         ylab(eixoY) + 
-         xlim(-5, 6) + 
+         geom_point(aes_string(x=input$X, y=input$Y) , alpha = 0.55, size = 3) +
+         aes(color = color) +
+         xlab(paste("Component",eixoX) ) +
+         ylab(paste("Component",eixoY)) +
+         labs(col=names(aux)[colorido]) +
          ggtitle("PCA Clusters") 
+       
+       
+       
+       #p1 <- ggplot(carsDf,aes(x=carsDf[,eixoX], y=carsDf[,eixoY])) +
+      #   theme_classic() +
+      #   geom_hline(yintercept = 0, color = "gray70") +
+      #   geom_vline(xintercept = 0, color = "gray70") +
+      #   geom_point(aes(color = cluster), alpha = 0.55, size = 3) +
+      #   xlab(eixoX) +
+      #   ylab(eixoY) + 
+      #   xlim(-5, 6) + 
+      #   ggtitle("PCA Clusters") 
        #print(unlist(w[,..LabelChoice]))
        #print(w[[LabelChoice]])
        #print(nrow(carsDf))
-       if(length(LabelChoice)>0)
-        p1= p1 + geom_text(aes(y = carsDf[,eixoY], label =  w[[LabelChoice]]  ))
-       ggplotly(p1)
+       #if(length(LabelChoice)>0)
+      #  p1= p1 + geom_text(aes(y = w1$x[,eixoY], label =  w[[LabelChoice]]  ))
+       ggplotly(p1,dragmode=pan)
        
        
        #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
@@ -1432,7 +1496,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
     #   grafico=ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="desvio",input$linguagens)
     # else if(input$escolhas=="Ambos")
     #   grafico=ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="ambos",input$linguagens)
-     ggplotly(grafico)
+     ggplotly(grafico,dragmode=pan)
      }
    })
 
