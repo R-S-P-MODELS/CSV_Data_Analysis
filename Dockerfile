@@ -33,6 +33,7 @@ COPY Encontrar_candidatos_dataset_v1.R /root/Exploration
 #COPY Rprofile.site /usr/lib/R/etc/
 COPY AppLastVersion.R  AppLastVersion.R
 COPY Encontrar_candidatos_dataset_v1.R Encontrar_candidatos_dataset_v1.R
+COPY PCAOtimizado.R PCAOtimizado.R
 EXPOSE 3838
 
 CMD ["R", "-e", "shiny::runApp('AppLastVersion.R',port=3838,host='0.0.0.0',launch.browser=FALSE)"]
