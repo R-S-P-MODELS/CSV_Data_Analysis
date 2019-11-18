@@ -1,5 +1,9 @@
 NewPCA<-function(data,k){
+	withProgress(message = 'Calculating PCA', value = 0, {
+
 	suppressMessages(require(RSpectra) )
+	incProgress(0, detail = "Preprocessing data" )
+
 	data1=as.data.frame(scale(data[sapply(data,class) %in% c('integer','numeric')],scale=TRUE))
 	data2=abs(data1)
 	aux=which(apply(abs(data2),2,sum)==0)
@@ -15,12 +19,17 @@ NewPCA<-function(data,k){
 	if(ncol(data1)==0)
 		return(0)
 	#data[names(data1)]=data1 # numericos
+	incProgress(1/4, detail = "Calculating Covariance matrix" )
+
 	covariancia=cov(data1)
+	incProgress(1.75/4, detail = "Calculating eigenvalues and eigenvectors" )
+
 	autovalores=RSpectra::eigs(covariancia,k)
-
+	incProgress(0.25/4, detail = "Calculating matrix product" )
 	pca=t(t(autovalores$vectors) %*% t(data1))
-
+})
 	return(pca)
+
 }
 
 PCAHOT<-function(data,k=2,target){

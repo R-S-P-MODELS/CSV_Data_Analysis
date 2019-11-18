@@ -1167,6 +1167,7 @@ output$bestvec <- renderPrint({
    
 completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribuicao original
      w=arquivo_ori
+     withProgress(message = 'Inputing Values', value = 0, {
      for(i in 1:ncol(w)){
        print(i)
        c=unlist(w[,..i])
@@ -1197,7 +1198,10 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
       #  c=round(c)}
          w[,names(w)[i] :=c] 
        }
+       incProgress(1/ncol(w), detail = paste("Inputting variable", names(w)[i] ) )
      }
+       
+     })
      return(w) # distribuicao sem NA
    }
    
@@ -1217,7 +1221,6 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        #  w=lixo_w
 	 cordenadas_auxiliares=as.numeric(which(sapply(w,class)=="integer" | sapply(w,class)=="numeric") )
 	 nomes=names(w)
-	 
 	 if(length(cordenadas_auxiliares)>0){
          e=w[,..cordenadas_auxiliares]
          
@@ -1239,7 +1242,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
          }
          print(dim(w))
          #factors
-	 }
+	 } 
          f=as.numeric(which(sapply(w,class)!="integer" & sapply(w,class)!="numeric") )
          print(f)
          print(names(w)[f])
