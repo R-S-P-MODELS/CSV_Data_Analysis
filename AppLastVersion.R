@@ -827,7 +827,7 @@ ui <- fluidPage(
       mainPanel(
         tabsetPanel(id="Referenciador",
                     tabPanel("Data Exploration",plotlyOutput("distPlot")),
-                    tabPanel("PCA Visualization",plotlyOutput("PCAPlot")),
+                    tabPanel("PCA Visualization",plotlyOutput("PCAPlot"),verbatimTextOutput("Outliers")  ),
 		    tabPanel("Correlation Matrix Image",plotlyOutput("MatrixPlot")),
 		    tabPanel("3D plots",plotlyOutput("threeDplots"))
         ),
@@ -864,7 +864,7 @@ server <- function(input, output) {
         #funcoes_reativas()
 	print("feito leitura")
         w=fread(input$file1$datapath,header=TRUE)
-        return(w)
+        return(unique(w) )
 
       }
       
@@ -878,9 +878,10 @@ server <- function(input, output) {
       if(!is.null(input$file1)){
         #funcoes_reativas()
 	print("feito leitura")
-        w=fread(input$file1$datapath,header=TRUE)
+     #   w=fread(input$file1$datapath,header=TRUE)
+        w=LeituraArquivo()
 	w1=as.data.frame(w)
-        return(w1)
+        return(unique(w1) )
 
       }
       
@@ -1477,6 +1478,43 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        
        #plot(mtcars[,eixoX],mtcars[,eixoY],xlab=input$X,ylab=input$Y)
      } } ) 
+   
+   output$Outliers<-renderPrint({
+     if(!is.null(input$file1) & input$Referenciador=="PCA Visualization"   ){
+       
+      PCA=GerarPCA()
+      w=LeituraArquivo()
+      w=as.data.frame(w)
+      #w=w[,PCA$Variables]
+      PCA=PCA$PCA
+      PCA=as.data.frame(PCA)
+      names(PCA)=paste("Component",1:ncol(PCA),sep="")
+      #print(names(PCA))
+      #Ponto=nearPoints(PCA, input$plot_click, threshold = 10, maxpoints = 1,
+            #     addDist = FALSE)
+      Ponto<- event_data("plotly_click")
+      if (!is.null(Ponto)){
+        Ponto=Ponto[,3:4] # Esta tupla deve ser modificada de forma a identificar o x y associado
+        PCA=data.frame(PCA[input$X],PCA[input$Y])
+        names(PCA)=c(input$X,input$Y)
+       # print(head(PCA))
+       # print(Ponto)
+      Encontrar=FALSE
+      i=1
+      while(!Encontrar){
+        if(sum(abs(PCA[i,]-Ponto))<3e-6 ){
+          Encontrar=TRUE
+          Linha=i
+          
+        }
+        i=i+1
+      }
+      #print(Linha)
+      print(w[Linha,])
+      #return(w[linha,])
+      } 
+      }
+   } )
 
 
 
