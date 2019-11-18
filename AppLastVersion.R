@@ -545,7 +545,7 @@ fit_melhor_caso=function(x,y,cores,limitepol,numero,metrica,nomeX,nomeY){
   print(nrow(v))
   print(nrow(u))
   print(c(nomeX,nomeY))
-  ggplot(data=u) +geom_point(aes(x=v[,1],y=v[,2])) +geom_line(aes(x=u[,1],y=u[,2],col=u[,3] )  ) + labs(x=nomeX,y=nomeY,col="Modelos")
+  ggplot(data=u) +geom_count(aes(x=v[,1],y=v[,2])) +geom_line(aes(x=u[,1],y=u[,2],col=u[,3] )  ) + labs(x=nomeX,y=nomeY,col="Modelos")
 }
 
 
@@ -596,7 +596,7 @@ fit_melhor_caso_table=function(x,y,cores,limitepol,numero,metrica,nomeX,nomeY){
   print(nrow(v))
   print(nrow(u))
   print(c(nomeX,nomeY))
-  ggplot(data=u) +geom_point(aes(x=v[,1],y=v[,2])) +geom_line(aes(x=u[,1],y=u[,2],col=u[,3] )  ) + labs(x=nomeX,y=nomeY,col="Modelos")
+  ggplot(data=u) +geom_count(aes(x=v[,1],y=v[,2])) +geom_line(aes(x=u[,1],y=u[,2],col=u[,3] )  ) + labs(x=nomeX,y=nomeY,col="Modelos")
 }
 #fim destas
 
@@ -1317,7 +1317,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
 	print(names(Auxiliar))
        if(input$histogram==FALSE){
          if(input$generate==FALSE){
-         Graph=ggplot(data=Auxiliar) +geom_point(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
+         Graph=ggplot(data=Auxiliar) +geom_count(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
          ggplotly(Graph,dragmode=pan)
          } 
           else
@@ -1368,7 +1368,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
                yaxis = list(title = input$Y),
                zaxis = list(title = input$Z)
              ))
-           #ggplot(data=Auxiliar) +geom_point(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
+           #ggplot(data=Auxiliar) +geom_count(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
          else
            fit_melhor_caso(unlist(Auxiliar[,1]),unlist(Auxiliar[,2]),cores =unlist(Auxiliar[,3]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
        else if(input$histogram==TRUE)
@@ -1449,7 +1449,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
          theme_classic() +
          geom_hline(yintercept = 0, color = "gray70") +
          geom_vline(xintercept = 0, color = "gray70") +
-         geom_point(aes_string(x=input$X, y=input$Y) , alpha = 0.55, size = 3) +
+         geom_count(aes_string(x=input$X, y=input$Y) , alpha = 0.55, size = 3) +
          aes(color = color) +
          xlab(paste("Component",eixoX) ) +
          ylab(paste("Component",eixoY)) +
@@ -1462,7 +1462,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
       #   theme_classic() +
       #   geom_hline(yintercept = 0, color = "gray70") +
       #   geom_vline(xintercept = 0, color = "gray70") +
-      #   geom_point(aes(color = cluster), alpha = 0.55, size = 3) +
+      #   geom_count(aes(color = cluster), alpha = 0.55, size = 3) +
       #   xlab(eixoX) +
       #   ylab(eixoY) + 
       #   xlim(-5, 6) + 
