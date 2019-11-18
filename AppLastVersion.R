@@ -957,7 +957,7 @@ output$bestvec <- renderPrint({
           logic=!logic
           steps=which(logic)
           selectInput("size", label = "Label",
-                      choices = c(names(aux)[steps],'None') )
+                      choices = c('None',names(aux)[steps]) )
         }
       }
     }
@@ -969,8 +969,8 @@ output$bestvec <- renderPrint({
       a=c()
       for(i in 1:length(w[,1]))
         a[i]=1
-      aux=data.table(w,a)
-      names(aux)[length(aux)]='None'
+      aux=data.table(a,w)
+      names(aux)[1]='None'
       # selectInput("X", label = "X",choices = names(aux))
       
       # selectInput("Y", label = "Y",choices = names(aux))
