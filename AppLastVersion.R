@@ -21,7 +21,30 @@ require(data.table)
 #funcao para completar variaveis categoricas
 source("Encontrar_candidatos_dataset_v1.R")
 
-require(gg3D)
+#require(gg3D)
+
+GrafoCorrelacao<-function(w,tresh=0.8){
+  m=Matriz_Correlacao_retorno(w)
+  require(igraph)
+  require(reshape2)
+  m=melt(m)
+  names(m)[3]='cooc'
+  m$cooc=abs(m$cooc)
+  m=m[m$cooc>tresh,]
+  wordnetwork=graph_from_data_frame(m)
+  
+  p<-ggraph(wordnetwork, layout = "fr") +
+    geom_edge_link(aes(width = cooc, edge_alpha = cooc), edge_colour = "pink") +
+    geom_node_text(aes(label = name), col = "darkgreen", size = 4) +
+    theme_graph(base_family = "Arial Narrow") +
+    theme(legend.position = "none") 
+  return(p)
+  
+}
+
+
+
+
 recuperar_categorica=function(c,d,delta){ # c sera a coluna com maior correlacao d a de valores faltando, delta o fator de aceitacao de valores iguais para valores reais
   #vec2=c()
   #b=d
@@ -79,25 +102,15 @@ predicao_importancia_v2_table=function(w,meta){ #espera um data.table
 }
 
 Matriz_Correlacao_retorno=function(w){
-   numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
+  w=as.data.frame(w)
+  categoricos=which(sapply(w,class)=="character" )
+  if(length(categoricos)>0){
+    for(i in categoricos)
+      w[,i]=as.factor(w[,i])
+  }
   #print(dim(w))
-   if(length(numericos)>0)
-    fac=w[,-..numericos]
-   else
-     fac=w
-  #       print(dim(fac))
-   if(length(numericos)>0)
-      numer=w[,..numericos]
-   
-  #       print(dim(numer))
-  if(ncol(fac)>0){
-    for(i in 1:ncol(fac)){
-      fac[,names(fac)[i] :=convert_fac_num(unlist(fac[,..i]))]
-    } 
-    }
-    if(length(numericos)>0)
-      fac=data.table(fac,numer)
-    print(dim(fac))
+  fac=sapply(w,as.numeric)  
+  
    return( cor(fac,use = "pairwise.complete.obs"))
 
     
@@ -128,8 +141,21 @@ return(p1)
 
 }
 
-
 matriz_correlacao_completa=function(w){
+  categoricos=which(sapply(w,class)=="character" )
+  if(length(categoricos)>0){
+    for(i in categoricos)
+      w[,i]=as.factor(w[,i])
+  }
+  #print(dim(w))
+  fac=sapply(w,as.numeric)  
+  return( cor(fac,use = "pairwise.complete.obs") )
+  
+  
+  
+}
+
+matriz_correlacao_completa_old=function(w){
   numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
   #print(dim(w))
   fac=w[,-numericos]
@@ -146,7 +172,7 @@ matriz_correlacao_completa=function(w){
     
   }
 }
-matriz_correlacao_completa_table=function(w){
+matriz_correlacao_completa_table_old=function(w){
   numericos=which(sapply(w,class)=="numeric" | (sapply(w,class)=="integer") )
   #print(dim(w))
   fac=w[,-..numericos]
@@ -162,6 +188,21 @@ matriz_correlacao_completa_table=function(w){
     
     
   }
+}
+
+matriz_correlacao_completa_table=function(w){
+  categoricos=which(sapply(w,class)=="character" )
+  w=as.data.frame(w)
+  if(length(categoricos)>0){
+    for(i in categoricos)
+      w[,i]=as.factor(w[,i])
+  }
+  #print(dim(w))
+  fac=sapply(w,as.numeric)  
+  return( cor(fac,use = "pairwise.complete.obs") )
+  
+  
+  
 }
 
 convert_fac_num=function(y){
@@ -828,7 +869,10 @@ ui <- fluidPage(
         tabsetPanel(id="Referenciador",
                     tabPanel("Data Exploration",plotlyOutput("distPlot")),
                     tabPanel("PCA Visualization",plotlyOutput("PCAPlot"),verbatimTextOutput("Outliers")  ),
-		    tabPanel("Correlation Matrix Image",plotlyOutput("MatrixPlot")),
+		    tabPanel("Correlation Matrix Image",
+		             #selectInput("OpcaoMatriz",label = "Forma de vizualizar",choices=c('Matriz','Grafo')),
+		             plotlyOutput("MatrixPlot"),
+		             plotOutput('GrafoCorrelacaov1') ),
 		    tabPanel("3D plots",plotlyOutput("threeDplots"))
         ),
          conditionalPanel(
@@ -1528,9 +1572,12 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
       # b=MatrizDistanciasPalavras(b,method)
      #source("Analise_texto.R")
      w=LeituraArquivo()
-     m=Matriz_Correlacao_retorno(w)
-     print(dim(m))
-     grafico=MatrixggplotShiny(m)	  
+     #if(input$OpcaoMatriz=="Matriz"){
+       
+      m=Matriz_Correlacao_retorno(w)
+      print(dim(m))
+      grafico=MatrixggplotShiny(m)	  
+    # }
     # if(input$escolhas=="Media")
     #   grafico= ProcessoShiny(caminho=input$file1$datapath,reject=input$Palavras,graph="gg",method="media",linguagem=input$linguagens)
     # else if(input$escolhas=="Desvio Padrao")
@@ -1540,6 +1587,16 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
      ggplotly(grafico,dragmode=pan)
      }
    })
+	
+	output$GrafoCorrelacaov1<-renderPlot({
+	  if(!is.null(input$file1)){
+	    
+	    w=LeituraArquivo()
+	    #m=Matriz_Correlacao_retorno(w)
+	    #if(input$OpcaoMatriz=="Grafo")
+	      GrafoCorrelacao(w,0.8)
+	  }
+	})
 
 
 #      findBestSet<-eventReactive(input$preencherdados,
