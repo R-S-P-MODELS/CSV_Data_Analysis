@@ -27,6 +27,7 @@ GrafoCorrelacao<-function(w,tresh=0.8){
   m=Matriz_Correlacao_retorno(w)
   require(igraph)
   require(reshape2)
+  require(ggraph)
   m=melt(m)
   names(m)[3]='cooc'
   m$cooc=abs(m$cooc)
