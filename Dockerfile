@@ -25,6 +25,7 @@ RUN R -e "install.packages(c('shiny', 'rmarkdown'), repos='https://cloud.r-proje
 RUN R -e "install.packages(c('data.table','plotly','cleanerR','plyr'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
 RUN R -e "install.packages(c('parallel'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
 RUN R -e "install.packages(c('RSpectra'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
+RUN R -e "install.packages(c('igraph','reshape2','ggraph'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
 
 # copy the app to the image
 #RUN mkdir /root/Exploration
