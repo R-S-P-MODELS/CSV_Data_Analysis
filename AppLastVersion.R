@@ -38,7 +38,7 @@ GrafoCorrelacao<-function(w,tresh=0.8){
     geom_edge_link(aes(width = cooc, edge_alpha = cooc), edge_colour = "pink") +
     geom_node_text(aes(label = name), col = "darkgreen", size = 4) +
     theme_graph(base_family = "Arial Narrow") +
-    theme(legend.position = "none") 
+    theme(legend.position = "none")  + labs(title = "Grafo onde variaveis com correlação maior que 0.9 em modulo são conectadas")
   return(p)
   
 }
@@ -129,7 +129,8 @@ p1=ggplot(data = h1, aes(x=Var1, y=Var2, fill=value)) + geom_tile() + labs(x="",
         axis.ticks.x=element_blank() ,axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank() )    
-p1=p1+scale_fill_gradientn(colours = rainbow(20)) 
+p1=p1+scale_fill_gradientn(colours = rainbow(20))
+p1=p1+labs(title="Matriz de correlação do dataset")
 #return(ggplotly(p1))
 return(p1)
 #ggplotly(ggplot(data = h1, aes(x=Var1, y=Var2, fill=value)) + geom_tile() +scale_color_gradientn(colours = rainbow(20)) + labs(x="",y=""  ) + theme(axis.title.x=element_blank(),
@@ -1595,7 +1596,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
 	    w=LeituraArquivo()
 	    #m=Matriz_Correlacao_retorno(w)
 	    #if(input$OpcaoMatriz=="Grafo")
-	      GrafoCorrelacao(w,0.8)
+	      GrafoCorrelacao(w,0.9)
 	  }
 	})
 
