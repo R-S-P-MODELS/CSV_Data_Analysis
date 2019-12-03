@@ -32,6 +32,7 @@ GrafoCorrelacao<-function(w,tresh=0.8){
   names(m)[3]='cooc'
   m$cooc=abs(m$cooc)
   m=m[m$cooc>tresh,]
+  m=m[m[,1]!=m[,2],]
   wordnetwork=graph_from_data_frame(m)
   
   p<-ggraph(wordnetwork, layout = "fr") +
