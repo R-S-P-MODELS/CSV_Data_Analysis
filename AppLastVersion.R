@@ -852,12 +852,14 @@ ui <- fluidPage(
          selectInput("metrica",label = "Metricas",choices = c("R squared","F Value"))
 		
 ),
-        
-        conditionalPanel(
-          condition = "is.null(input.file1) == true",
-          checkboxInput("histogram","Show histogram of x")),
+        selectInput("TipoGrafico","Select your Graph Type",choices=c('Points','Lines','BoxPlot',"Density2d","Quantile","HeatMap","Histogram","ErrorBar")),
+       # conditionalPanel(
+        #  condition = "is.null(input.file1) == true",
+         # checkboxInput("histogram","Show histogram of x")),
         uiOutput("Eixox"),
+        uiOutput("EixoxErro"),
         uiOutput("Eixoy"),
+        uiOutput("EixoyErro"),
         uiOutput("Eixoz"),
         uiOutput("cores"),
         uiOutput("tamanhos"),
@@ -872,11 +874,12 @@ ui <- fluidPage(
         tabsetPanel(id="Referenciador",
                     tabPanel("Data Exploration",plotlyOutput("distPlot")),
                     tabPanel("PCA Visualization",plotlyOutput("PCAPlot"),verbatimTextOutput("Outliers")  ),
+                    #tabPanel("SOM",plotOutput("SOMPlot") ),
 		    tabPanel("Correlation Matrix Image",
 		             #selectInput("OpcaoMatriz",label = "Forma de vizualizar",choices=c('Matriz','Grafo')),
 		             plotlyOutput("MatrixPlot"),
 		             plotOutput('GrafoCorrelacaov1') ),
-		    tabPanel("3D plots",plotlyOutput("threeDplots"))
+		              tabPanel("3D plots",plotlyOutput("threeDplots"))
         ),
          conditionalPanel(
            condition = "input.showsummary == true",
@@ -990,7 +993,7 @@ output$bestvec <- renderPrint({
   #  selectInput("Y", label = "Y",choices = names(aux))
     
    # selectInput("color", label = "Color",choices = names(aux))
-      if(input$histogram==FALSE){
+      if(input$TipoGrafico!="Histogram"){
         if(input$Referenciador=="Data Exploration")
           selectInput("size", label = "Size",
                       choices = names(aux))
@@ -1044,7 +1047,7 @@ output$bestvec <- renderPrint({
       w=LeituraArquivo()
       #w=LeituraArquivoCsv()
       # selectInput("X", label = "X",choices = names(w))
-      if(input$histogram==FALSE){
+      if(input$TipoGrafico!="Histogram"){
         if(input$Referenciador=="PCA Visualization"){
           Results=GerarPCA()
           step=Results$Variables
@@ -1072,7 +1075,7 @@ output$bestvec <- renderPrint({
       w=LeituraArquivo()
       #w=LeituraArquivoCsv()
       # selectInput("X", label = "X",choices = names(w))
-      if(input$histogram==FALSE){
+      if(input$TipoGrafico!="Histogram"){
         if(input$Referenciador=="PCA Visualization"){
           step=which(lapply(w,class) %in% c("numeric","integer"))
           selectInput("Z", label = "Z",choices = names(w[,..step]))
@@ -1113,13 +1116,37 @@ output$bestvec <- renderPrint({
   })
   
   
-  
-  
-  
-  
-  
 
-   
+  
+  output$EixoyErro = renderUI({
+    if(!is.null(input$file1)){
+      if(input$TipoGrafico %in% c('ErrorBar')){
+        w=LeituraArquivo()
+        w=as.data.frame(w)
+        w=data.frame(w,0)
+        names(w)[ncol(w)]='NoError'
+        classes=sapply(w,class) %in% c('integer','numeric')
+        w=w[,classes]
+        selectInput("Yerror", label = "Y error",choices = names(w))
+      }
+    }
+  })
+
+  output$EixoxErro = renderUI({
+    if(!is.null(input$file1)){
+      if(input$TipoGrafico %in% c('ErrorBar')){
+        w=LeituraArquivo()
+        w=as.data.frame(w)
+        w=data.frame(w,0)
+        names(w)[ncol(w)]='NoError'
+        classes=sapply(w,class) %in% c('integer','numeric')
+        w=w[,classes]
+        selectInput("Xerror", label = "X error",choices = names(w))
+      }
+    }
+  })
+  
+  
    
    output$sum <- renderPrint({
      if(!is.null(input$file1)){
@@ -1358,20 +1385,85 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        names(aux)[length(aux)]='None'
        eixoX=which(names(w)==input$X)
        eixoY=which(names(w)==input$Y)
+       ErroY=which(names(w)==input$Yerror)
+       ErroX=which(names(w)==input$Xerror)
+       
        colorido=which(names(aux)==input$color)
        tamanho=which(names(aux)==input$size)
-	Auxiliar=unique(aux[,c(..eixoX,..eixoY,..colorido,..tamanho)])
-	names(Auxiliar)=c("n1","n2","n3","n4")
-	print(names(Auxiliar))
-       if(input$histogram==FALSE){
+	     Auxiliar=unique(aux[,c(..eixoX,..eixoY,..colorido,..tamanho)])
+	     names(Auxiliar)=c("n1","n2","n3","n4")
+	     print(names(Auxiliar))
+       if(input$TipoGrafico!="Histogram"){
          if(input$generate==FALSE){
-         Graph=ggplot(data=Auxiliar) +geom_count(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
+         if(input$TipoGrafico=="Points"){
+          Graph=ggplot(data=Auxiliar) +geom_count(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
+         } else if(input$TipoGrafico=="Lines"){
+           Graph=ggplot(data=Auxiliar) +geom_line(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]) )  )+labs(x=input$X,y=input$Y,colour=input$color )
+           
+         } else if(input$TipoGrafico=="BoxPlot"){
+           Graph=ggplot(data=Auxiliar) +geom_boxplot(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3])) )+labs(x=input$X,y=input$Y,colour=input$color )
+           
+         }
+           else if(input$TipoGrafico=="Density2d"){
+             Graph=ggplot(data=Auxiliar) +geom_density2d(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3])) )+labs(x=input$X,y=input$Y,colour=input$color )
+             
+           }
+           else if(input$TipoGrafico=="Quantile"){
+             Graph=ggplot(data=Auxiliar) +geom_quantile(quantiles = c(0.25,0.5,0.75,1),aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),group=unlist(Auxiliar[,3]), ) )+labs(x=input$X,y=input$Y,colour=input$color )
+             
+           }
+           else if(input$TipoGrafico=="HeatMap"){
+             Graph=ggplot(data=Auxiliar) +geom_bin2d(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),fill=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4]), ) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
+             
+           }
+           else if(input$TipoGrafico=="ErrorBar"){
+             if(length(ErroY)>0 & length(ErroX)>0 ){
+             Auxiliar=unique(aux[,c(..eixoX,..eixoY,..colorido,..tamanho,..ErroY,..ErroX)])
+             
+             ymin=unlist(Auxiliar[,2])-unlist(Auxiliar[,5])
+             ymax=unlist(Auxiliar[,2])+unlist(Auxiliar[,5])
+             xmin=unlist(Auxiliar[,1])-unlist(Auxiliar[,6])
+             xmax=unlist(Auxiliar[,1])+unlist(Auxiliar[,6])
+             Xaxis=unlist(Auxiliar[,1])
+             Yaxis=unlist(Auxiliar[,2])
+             }else if(length(ErroX)>0){
+               Auxiliar=unique(aux[,c(..eixoX,..eixoY,..colorido,..tamanho,..ErroX)])
+               
+               ymin=unlist(Auxiliar[,2])
+               ymax=unlist(Auxiliar[,2])
+               xmin=unlist(Auxiliar[,1])-unlist(Auxiliar[,5])
+               xmax=unlist(Auxiliar[,1])+unlist(Auxiliar[,5])
+               Xaxis=unlist(Auxiliar[,1])
+               Yaxis=unlist(Auxiliar[,2])
+             }else if(length(ErroY)>0){
+               Auxiliar=unique(aux[,c(..eixoX,..eixoY,..colorido,..tamanho,..ErroY)])
+               
+               ymin=unlist(Auxiliar[,2])-unlist(Auxiliar[,5])
+               ymax=unlist(Auxiliar[,2])+unlist(Auxiliar[,5])
+               xmin=unlist(Auxiliar[,1])
+               xmax=unlist(Auxiliar[,1])
+               Xaxis=unlist(Auxiliar[,1])
+               Yaxis=unlist(Auxiliar[,2])
+             }else{
+               Auxiliar=unique(aux[,c(..eixoX,..eixoY,..colorido,..tamanho)])
+               ymin=unlist(Auxiliar[,2])
+               ymax=unlist(Auxiliar[,2])
+               xmin=unlist(Auxiliar[,1])
+               xmax=unlist(Auxiliar[,1])
+               Xaxis=unlist(Auxiliar[,1])
+               Yaxis=unlist(Auxiliar[,2])
+             }
+             
+             Graph=ggplot() + geom_errorbar(aes(x=Xaxis,y=Yaxis,ymin=ymin,ymax=ymax,color=unlist(Auxiliar[,3])))+geom_errorbarh(aes(color=unlist(Auxiliar[,3]),x=Xaxis,y=Yaxis,xmin = xmin,xmax = xmax))+labs(x=input$X,y=input$Y,colour=input$color)
+           }
          ggplotly(Graph,dragmode=pan)
          } 
           else
            fit_melhor_caso(unlist(Auxiliar[,1]),unlist(Auxiliar[,2]),cores =unlist(Auxiliar[,3]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
-       else if(input$histogram==TRUE){
-         Graph=ggplot(data=Auxiliar) +geom_histogram(aes(x=unlist(Auxiliar[,1]),fill=unlist(Auxiliar[,3])),stat = 'count' )+labs(x=input$X,fill=input$color )
+       else if(input$TipoGrafico=="Histogram"){
+          #if(input$TipoGrafico=="Histogram"){
+            Graph=ggplot(data=Auxiliar) +geom_histogram(aes(x=unlist(Auxiliar[,1]),fill=unlist(Auxiliar[,3])),stat = 'count' )+labs(x=input$X,fill=input$color )
+          #} 
          ggplotly(Graph,dragmode=pan)
        }
        
@@ -1402,7 +1494,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
        Auxiliar=unique(aux[,c(..eixoX,..eixoY,..eixoZ,..colorido,..tamanho)])
        names(Auxiliar)=c("n1","n2","n3","n4","n5")
        print(names(Auxiliar))
-       if(input$histogram==FALSE){
+       if(input$TipoGrafico!="Histogram"){
          if(input$generate==FALSE)
         #  ggplotly( ggplot(Auxiliar, aes(x=unlist(Auxiliar[,1]), y=unlist(Auxiliar[,2]), z=unlist(Auxiliar[,3]), color=unlist(Auxiliar[,4]),size=unlist(Auxiliar[,5]) ) )+ 
          #  theme_void() +
@@ -1419,7 +1511,7 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
            #ggplot(data=Auxiliar) +geom_count(aes(x=unlist(Auxiliar[,1]),y=unlist(Auxiliar[,2]),color=unlist(Auxiliar[,3]),size=unlist(Auxiliar[,4])) )+labs(x=input$X,y=input$Y,colour=input$color,size=input$size )
          else
            fit_melhor_caso(unlist(Auxiliar[,1]),unlist(Auxiliar[,2]),cores =unlist(Auxiliar[,3]) ,limitepol =input$poly,numero = input$opcoes,metrica = input$metrica,nomeX=input$X,nomeY=input$Y )}
-       else if(input$histogram==TRUE)
+       else if(input$TipoGrafico=="Histogram")
          ggplot(data=Auxiliar) +geom_histogram(aes(x=unlist(Auxiliar[,1]),fill=unlist(Auxiliar[,3])),stat = 'count' )+labs(x=input$X,fill=input$color )
        
        
@@ -1598,6 +1690,74 @@ completar_distribuicao_table<- function(arquivo_ori){ # arquivo_ori e a distribu
 	    #m=Matriz_Correlacao_retorno(w)
 	    #if(input$OpcaoMatriz=="Grafo")
 	      GrafoCorrelacao(w,0.9)
+	  }
+	})
+	
+	
+	
+	OptimumClustering<-function(matrix,kmin,kmax){
+	  vec=c()
+	  require(cluster)
+	  withProgress(message = 'Building Som', value = 0, {
+	    for(i in kmin:kmax){
+	      set.seed(100)
+	      clustercriado=kmeans(matrix,i)
+	      silhueta=silhouette(clustercriado$cluster,matrix)[,3]
+	      silhueta=silhueta[abs(silhueta)<Inf]
+	      vec[i-kmin+1]=mean(silhueta,na.rm=TRUE)
+	      incProgress(1/(kmax-kmin +1), detail = "Finding Optimum Cluster" )
+	    }
+	    Otimo=min(which(vec==max(vec)) ) + kmin
+	    set.seed(100)
+	  })
+	  # return(Otimo)
+	  return(kmeans(matrix,Otimo))
+	}
+	
+	heatmap.som <- function(model){
+	  for (i in 1:10) {
+	    plot(model, type = "property", property = getCodes(model)[,i], 
+	         main = colnames(getCodes(model))[i]) 
+	  }
+	}
+	
+	CalcularSom<-reactive({
+	  w=LeituraArquivo()
+	  w=as.data.frame(w)
+	  require(kohonen)
+	  w=w[,sapply(w,class) %in% c('numeric','integer')]
+	  ads.train <- as.matrix(scale(w))
+	  ads.grid <- somgrid(xdim = 10, ydim = 10, topo = "hexagonal")
+	  ads.model <- som(ads.train, ads.grid, rlen = 500, radius = 2.5, keep.data = TRUE,
+	                   dist.fcts = "euclidean")
+	  return(list(w=w,model=ads.model))
+	})
+	
+	output$SOMPlot<-renderPlot({
+	  if(!is.null(input$file1)){
+	    
+	    ads.model=CalcularSom()
+	    w=ads.model$w
+	    ads.model=ads.model$model
+	    #heatmap.som(ads.model)
+	    if(input$X=="Cluster"){
+	   # Clusters<-OptimumClustering(ads.model$codes[[1]],2,10)
+	    wss <- sapply(1:15, function(k){kmeans(ads.model$codes[[1]], k, nstart=50,iter.max = 15 )$tot.withinss})
+	    Clusters<-which(abs(diff(wss)/wss[-length(wss)]) < 0.1)[1]
+	    clust <- kmeans(ads.model$codes[[1]], Clusters)
+	    plot(ads.model, type = "codes", bgcol = rainbow(9)[clust$cluster], main = "Cluster Map")
+	    #colorido=which(names(w)==input$color)
+	    
+	    #cor=w[,colorido]
+	    #plot(ads.model, type = "codes", bgcol = rainbow(9)[cor], main = "Cluster Map")
+	    add.cluster.boundaries(ads.model, clust$cluster)
+	    }else if(input$X=="HeatMap"){
+	      EixoHeat=which(input$Y==names(w))
+	      plot(ads.model, type = "property", property = getCodes(ads.model)[,EixoHeat], 
+	           main = colnames(getCodes(ads.model))[EixoHeat]) 
+	    }
+	    #plot(ads.model, type = "counts")
+	    
 	  }
 	})
 
