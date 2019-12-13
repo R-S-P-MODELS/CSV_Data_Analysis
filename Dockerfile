@@ -12,17 +12,24 @@ RUN apt-get update && apt-get install -y \
     libxt-dev \
     libssl-dev \
     libssh2-1-dev \
-    libssl1.0.0
+    libssl1.0.0 \
+    libgeos-dev 
 
 # system library dependency for the euler app
 RUN apt-get update && apt-get install -y \
-    libmpfr-dev
+    libmpfr-dev \
+    libxml2-dev
 
 # basic shiny functionality
 RUN R -e "install.packages(c('shiny', 'rmarkdown'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
-
+RUN R -e "install.packages(c('remotes'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
+RUN R -e "install.packages(c('ggplot2'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
+RUN apt-get install -y \
+ 	libudunits2-dev \
+	libgdal-dev
+RUN R -e "remotes::install_version('plotly',version='4.8.0', repos='https://cloud.r-project.org/',dependencies=TRUE)"
 # install dependencies of the Analysis app
-RUN R -e "install.packages(c('data.table','plotly','cleanerR','plyr'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
+RUN R -e "install.packages(c('data.table','cleanerR','plyr'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
 RUN R -e "install.packages(c('parallel'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
 RUN R -e "install.packages(c('RSpectra'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
 RUN R -e "install.packages(c('igraph','reshape2','ggraph'), repos='https://cloud.r-project.org/',dependencies=TRUE)"
