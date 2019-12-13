@@ -852,7 +852,7 @@ ui <- fluidPage(
          selectInput("metrica",label = "Metricas",choices = c("R squared","F Value"))
 		
 ),
-        selectInput("TipoGrafico","Select your Graph Type",choices=c('Points','Lines','BoxPlot',"Density2d","Quantile","HeatMap","Histogram","ErrorBar")),
+        selectInput("TipoGrafico","Select your Graph Type",choices=c('Points','Lines','BoxPlot',"Density2d","HeatMap","Histogram","ErrorBar")),
        # conditionalPanel(
         #  condition = "is.null(input.file1) == true",
          # checkboxInput("histogram","Show histogram of x")),
